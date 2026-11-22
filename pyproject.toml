@@ -20,7 +20,9 @@ exclude-newer = "7 days"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# One event loop for the whole run: the cached DB engine's connections belong to one loop.
 asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["."]
 

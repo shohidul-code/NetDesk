@@ -8,7 +8,8 @@ The values are synthetic test values, not real secrets.
 import os
 from collections.abc import AsyncIterator
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://netdesk:netdesk@localhost:5432/netdesk")
+# Host port 5433, so it does not clash with a local PostgreSQL on 5432.
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://netdesk:netdesk@localhost:5433/netdesk")
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret-key-not-used-anywhere-else-0123")
 
 import pytest  # noqa: E402
