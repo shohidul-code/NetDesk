@@ -8,14 +8,34 @@ Schema changes go through Alembic only, never `metadata.create_all`.
 from collections.abc import AsyncIterator
 from functools import lru_cache
 
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
+
+
+class Base(DeclarativeBase):
+    """Parent of every model. Alembic reads `Base.metadata` to autogenerate migrations.
+
+    The naming convention gives every constraint a predictable name, so migrations
+    can drop or change it later (unnamed constraints get random names per database).
+    """
+
+    metadata = MetaData(
+        naming_convention={
+            "ix": "ix_%(column_0_label)s",
+            "uq": "uq_%(table_name)s_%(column_0_name)s",
+            "ck": "ck_%(table_name)s_%(constraint_name)s",
+            "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+            "pk": "pk_%(table_name)s",
+        }
+    )
 
 
 @lru_cache
