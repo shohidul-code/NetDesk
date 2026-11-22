@@ -1,0 +1,61 @@
+# CI (PROPOSAL §12.8). The security job (pip-audit, gitleaks) is added in Phase 8
+# and the frontend job in Phase 7 (BUILD_PLAN.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: netdesk
+          POSTGRES_PASSWORD: netdesk
+          POSTGRES_DB: netdesk
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd "pg_isready -U netdesk -d netdesk"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://netdesk:netdesk@localhost:5433/netdesk
+      # CI-only value; not used anywhere else.
+      JWT_SECRET_KEY: ci-only-secret-key-not-used-anywhere-else-0123456789
+    steps:
+      # Actions pinned by commit SHA (tag in the comment) so a moved tag cannot change CI.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.21"
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app
+      - run: uv run pytest -q
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create .env from the example
+        run: cp .env.example .env
+      # --wait blocks until every service is healthy; fail if that takes over 5 minutes.
+      - name: Start the stack from a fresh clone
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Smoke test
+        run: scripts/smoke.sh http://localhost:8000
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail 100
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
