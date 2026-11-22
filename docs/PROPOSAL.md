@@ -14,7 +14,7 @@ Build **NetDesk**, but pitch it as a Bangla-first AI front desk for small ISPs, 
 
 Main changes from the current plan (details in *Refined plan*): Neon replaces Render Postgres, because a free Render database expires after 30 days ([Render](https://render.com/docs/free)). Chat sessions are stored in the database instead of being stateless. Each role gets its own tool set. MCP is staff-only. Vector search is exact (no index) at MVP scale.
 
-**Status today:** the Phase 0–1 code is drafted (settings, `/api/v1/health`) but has not been run. Nothing else is started.
+**Status today:** Phase 0 (scope freeze) is in progress. No code exists yet; Phase 1 starts from an empty repository.
 
 ## 2. Candidate comparison
 
@@ -118,12 +118,12 @@ It goes well beyond CRUD. It has object-level authorization, an LLM that cannot 
 
 ## 4. 100-mark rubric traceability matrix
 
-Every criterion has a file, a test and a piece of evidence for the examiner. Only B1 is in progress: its code is drafted but has not been run. Update the Status column as you go.
+Every criterion has a file, a test and a piece of evidence for the examiner. No criterion is started yet. Update the Status column as you go.
 
 | Criterion (marks) | Implementation | File / endpoint | Verification | Evidence for examiner | Status | Major risk |
 | --- | --- | --- | --- | --- | --- | --- |
 | A Idea & originality (10) | Problem, buyer, differentiation, discovery notes | README "Problem & buyer"; docs/PRD.md | 5 owner interviews logged | 45-second video intro + README | Not started | Claims without evidence |
-| B1 Setup (3) | uv with committed uv.lock; `/api/v1` prefix; pydantic-settings with `SecretStr`; `.env.example`; startup fails without secrets | pyproject.toml, uv.lock, app/core/config.py, .env.example, .gitignore | Remove `JWT_SECRET_KEY` → app exits with ValidationError; gitleaks in CI | Terminal clip of the crash | In progress | uv.lock not committed |
+| B1 Setup (3) | uv with committed uv.lock; `/api/v1` prefix; pydantic-settings with `SecretStr`; `.env.example`; startup fails without secrets | pyproject.toml, uv.lock, app/core/config.py, .env.example, .gitignore | Remove `JWT_SECRET_KEY` → app exits with ValidationError; gitleaks in CI | Terminal clip of the crash | Not started | uv.lock not committed |
 | B2 Structure (4) | `app/modules/<feature>/` with controllers, services, repositories, schemas, models, dependencies; `Depends` chain | app/modules/\* | Controllers never import repositories (import-linter, P1) | Folder tree + code walkthrough | Not started | Business logic creeping into controllers |
 | B3 Database (5) | Async SQLAlchemy 2 + asyncpg; 12 tables; 4 Alembic migrations; idempotent seed | app/db/, migrations/, scripts/seed.py | `alembic upgrade head` on an empty DB; `alembic check` shows no drift; seed run twice | `alembic history` output; ERD | Not started | `create_all` in tests looks like a violation |
 | B4 Domain API (4) | Full CRUD for connections and packages; filters (area, status, package); search `q`; limit/offset pages | `/api/v1/connections`, `/api/v1/packages` | API tests for every verb, filter and page | Swagger demo of search + filter | Not started | Pages without a total count |
@@ -490,6 +490,7 @@ erDiagram
     uuid connection_id FK
     char period
     numeric amount_bdt
+    date due_date
     text status
     text trx_id UK
     uuid verified_by FK
@@ -512,15 +513,19 @@ erDiagram
 | areas | Service areas | `code` unique; `name`, `name_bn` | unique(code) |
 | packages | Internet plans | `name` unique; `speed_mbps > 0`; `monthly_price_bdt >= 0`; `is_active` | unique(name) |
 | connections | **Main domain resource** | `customer_code` unique; phone stored as E.164; status `active / suspended / disconnected`; area and package FKs with RESTRICT; `customer_user_id` nullable | unique(customer\_code); (area\_id, status); (package\_id); (phone) |
-| bills | Monthly dues + payment trail | unique(connection\_id, period); `amount_bdt >= 0`; status `unpaid / paid / waived`; CHECK paid ⇔ `paid_at` set; `trx_id` unique when present | (status, period); (connection\_id); partial unique(trx\_id) |
+| bills | Monthly dues + payment trail | unique(connection\_id, period); `amount_bdt >= 0`; `due_date` set at generation to the 10th of the month after `period`; status `unpaid / paid / waived`; CHECK paid ⇔ `paid_at` set; `trx_id` unique when present | (status, period); (connection\_id); partial unique(trx\_id) |
 | complaints | Support tickets | category enum; status `open / in_progress / resolved / closed`; description ≤ 1,000 chars; `assigned_to` nullable | (status, created\_at); (connection\_id) |
 | area\_notices | Outages and maintenance | kind enum; `message_bn`, `message_en`; CHECK `ends_at > starts_at` | (area\_id, starts\_at) |
 | knowledge\_documents | Source articles | `slug` unique; language `bn / en`; visibility `public / staff`; status `active / archived`; `content_sha256`; `embedding_model` | unique(slug) |
 | knowledge\_chunks | RAG units | `embedding vector(384) NOT NULL`; unique(document\_id, chunk\_index); ON DELETE CASCADE | (document\_id); HNSW in P1 |
-| chat\_sessions | Conversations | `user_id` FK; `title` | (user\_id, updated\_at) |
+| chat\_sessions | Conversations | `user_id` FK; `title`; `deleted_at` nullable (soft delete) | (user\_id, updated\_at) |
 | chat\_messages | Turns + audit trail | role `user / assistant`; content ≤ 4,000 chars; `tools_used`, `sources` jsonb; `prompt_version`; `model`; token counts; `latency_ms` | (session\_id, created\_at) |
 
-**Delete rules.** Deleting a connection that has bills returns 409; the admin sets status `disconnected` instead. Deleting a package in use returns 409. Users are deactivated, never deleted. Bills are never deleted; they are `waived`.
+**Id types.** Lookup tables (roles, areas, packages) use `int` primary keys; every other table uses `uuid`. API schemas follow the table, so `ChatReply.message_id` is a `UUID`.
+
+**Delete rules.** Deleting a connection that has bills returns 409; the admin sets status `disconnected` instead. Deleting a package in use returns 409. Users are deactivated, never deleted. Bills are never deleted; they are `waived`. Deleting a chat session sets `deleted_at`: the owner no longer sees it, and its messages stay as the audit trail.
+
+**Complaint status.** Allowed changes: `open → in_progress → resolved → closed`, plus `resolved → in_progress` to reopen. Any other change returns 409.
 
 **Vector rules.** Every chunk stores a normalized 384-dimension vector from `multilingual-e5-small`. Each document records `embedding_model`. Retrieval refuses to run if the configured model differs, so vectors from two models can never be mixed.
 
@@ -581,7 +586,7 @@ All endpoints live under `/api/v1` and use `Authorization: Bearer <JWT>`. Login 
 | POST | `/bills/generate` | Admin | 201 created and skipped counts | 403, 422 |
 | POST | `/bills/{id}/payment` | Admin | 200 | 404; 409 already paid or TrxID reused; 422 |
 | GET | `/bills/summary?period=` | Admin | 200 dues by area | 403 |
-| POST | `/complaints` | Customer (own connection), staff | 201 | 403 when the flag is off; 404; 422 |
+| POST | `/complaints` | Customer (own connection), admin | 201 | 403 when the flag is off; 404; 422 |
 | GET | `/complaints?status&area_id&limit&offset` | Any (scoped) | 200 page | 401 |
 | PATCH | `/complaints/{id}` | Technician, admin | 200 | 403, 404; 409 invalid status change; 422 |
 | GET | `/notices?area_id&active=` | Any (scoped) | 200 list | 401 |
@@ -590,7 +595,7 @@ All endpoints live under `/api/v1` and use `Authorization: Bearer <JWT>`. Login 
 | GET | `/chat/sessions` | Any (own) | 200 list | 401 |
 | GET | `/chat/sessions/{id}/messages` | Owner | 200 list | 404 |
 | POST | `/chat/sessions/{id}/messages` | Owner | 201 reply | 404, 422; 429 quota; 503 LLM unavailable |
-| DELETE | `/chat/sessions/{id}` | Owner | 204 | 404 |
+| DELETE | `/chat/sessions/{id}` | Owner | 204 (soft delete; messages kept for audit) | 404 |
 | GET | `/knowledge/documents` | Technician, admin | 200 list | 403 |
 | — | `/mcp` (Streamable HTTP) | Technician, admin | MCP protocol | 401, 403; 421 if the host is not allowed |
 
@@ -627,7 +632,7 @@ class ChatMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
 
 class ChatReply(BaseModel):
-    message_id: int
+    message_id: UUID
     content: str
     tools_used: list[ToolUse]                      # name, ok
     sources: list[Source]                          # ref "S1", document_slug, title
@@ -656,6 +661,7 @@ For 422, `details` lists `{field, message}` pairs. It never echoes the submitted
 | 403 | Role may never do this action |
 | 404 | Not found, or outside the caller's scope |
 | 409 | Unique or state conflict: duplicate code, reused TrxID, bills exist, invalid status change |
+| 413 | Request body over the 64 KB limit (§10.2) |
 | 422 | Validation error |
 | 429 | Rate limit or daily chat quota; includes `Retry-After` |
 | 500 | Unexpected; body holds only the envelope and `request_id` |
@@ -1265,9 +1271,9 @@ The frontend agent can start after Phase 3, once the API contract is stable. **T
 - **Done when:** the instructor question is sent, the docs agree with each other, and the P0 list is frozen.
 - **Risk:** scope creep from P1 ideas.
 
-### Phase 1 — Foundation (1.5 days, P0; partly drafted)
+### Phase 1 — Foundation (1.5 days, P0)
 
-- **Tasks:** run the drafted code; move the `.env.example` comment to its own line; add the error envelope, global handlers, request-ID middleware and JSON logging; initialize Alembic with the async template; write the Dockerfile and Compose file (db, embeddings, api); add CI (ruff, mypy, pytest).
+- **Tasks:** write `pyproject.toml` with `uv.lock`, the settings, `/api/v1/health` and `.env.example` (every comment on its own line, never inline after a value); add the error envelope, global handlers, request-ID middleware and JSON logging; initialize Alembic with the async template; write the Dockerfile and Compose file (db, embeddings, api); add CI (ruff, mypy, pytest).
 - **Files:** `app/main.py`, `app/core/{config,errors,logging,db}.py`, `Dockerfile`, `compose.yaml`, `.github/workflows/ci.yml`.
 - **Tests:** startup fails without a secret; health returns 200; an unknown route returns the envelope with 404; a forced error returns 500 without a traceback.
 - **Done when (Gate 0):** `docker compose up` serves `/docs`, and CI is green on GitHub.
@@ -1479,7 +1485,7 @@ Ten changes fix the weaknesses above. The largest are a smaller P0 frontend, a v
 
 ### Next action
 
-Phase 0, today: send the instructor the questions in section 4, ask classmates which LLM and embedding model the class used, and update the planning docs. Then run the drafted Phase 1 code and make the first commits.
+Phase 0, today: send the instructor the questions in section 4, ask classmates which LLM and embedding model the class used, and update the planning docs. Then start Phase 1 and make the first commits.
 
 ## Assumptions, open questions and sources
 

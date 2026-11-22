@@ -1,469 +1,189 @@
-# NetDesk — ISP Support Agent: Architecture and Build Plan
-
-A plan for you to build by hand. It contains no backend code on purpose: Part B must be your own work (course AI policy, Section 5).
-
-Codes like **B7** point to the marking criteria.
-
----
-
-## 1. Product in one paragraph
-
-**NetDesk** is a support and billing agent for small area broadband operators in Bangladesh. Customers ask in chat: "why is my net down?", "how much do I owe?". The agent checks the real database (bills, complaints in the area) and the operator's own documents (troubleshooting guide, packages, payment rules), then answers. Owners and technicians manage connections, bills and complaints from a dashboard.
-
-| Sellable point (E) | NetDesk answer |
-|---|---|
-| Target customer | Area broadband operators with roughly 200–2,000 connections |
-| Real problem | The office phone rings all day for the same three questions; bills are tracked on paper or Excel |
-| Realistic use | Real fields (package, area, billing month, bKash) and real roles (owner, technician, customer) |
-| Business model | Monthly fee per active connection, plus one-time setup |
-| Why pay | Fewer calls, fewer missed bills, known outages answered automatically |
-| Ready to show | Seed data with real-looking names, areas and months |
-
-Put this table in the README and say it in the video.
-
----
-
-## 2. Architecture
-
-```
- Browser (React frontend)            MCP client (Inspector / desktop app)
-        |  HTTPS + JWT                     |  HTTP /mcp        |  stdio
-        v                                  v                   v
- +---------------------------------------------------+   +-----------+
- | FastAPI app                                       |   | stdio     |
- |  /api/v1/...  controllers                         |   | entry     |
- |       |  Depends(db, current_user, role)          |   | point     |
- |       v                                           |   +-----+-----+
- |  services  <------------- MCP server (mounted) <--------------+
- |       |          \
- |       v           \--> integrations/llm         --> LLM API
- |  repositories      \-> integrations/embeddings  --> embedding service
- +-------|-------------------------------------------+
-         v
- PostgreSQL + pgvector
-```
-
-Rules that keep the structure marks (B2):
-
-- Controllers only do HTTP: read the request, call one service, return a schema.
-- Services hold the logic and never import FastAPI request objects.
-- Repositories hold every query. Nothing else touches the session.
-- The chat tools and the MCP tools call the **same services**. No duplicate logic.
-- Everything is wired with `Depends`.
-
----
-
-## 3. Folder structure
-
-```
-netdesk/
-├── app/
-│   ├── main.py                  app factory, routers, handlers, MCP mount
-│   ├── core/
-│   │   ├── config.py            pydantic-settings
-│   │   ├── database.py          async engine, session, get_db
-│   │   ├── security.py          hashing, JWT create/verify
-│   │   ├── exceptions.py        custom error classes
-│   │   └── handlers.py          global exception handlers
-│   ├── modules/
-│   │   ├── auth/
-│   │   ├── users/
-│   │   ├── packages/
-│   │   ├── connections/
-│   │   ├── bills/
-│   │   ├── complaints/
-│   │   ├── knowledge/
-│   │   └── chat/
-│   │        each has: controllers.py services.py repositories.py
-│   │                  schemas.py models.py dependencies.py
-│   ├── integrations/
-│   │   ├── llm/                 client, tool-call loop helpers
-│   │   └── embeddings/          client for the embedding service
-│   └── mcp/
-│       ├── server.py            tools, resource, prompt
-│       └── stdio.py             stdio entry point
-├── alembic/                     migrations
-├── scripts/
-│   ├── seed.py
-│   └── ingest.py
-├── knowledge/                   the .md documents you write
-├── frontend/                    AI-assisted is allowed here only
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-├── uv.lock
-├── .env.example
-├── .gitignore
-└── README.md
-```
-
-A module may leave a file nearly empty (chat has no model), but keep the same six files so the layout is consistent.
-
----
+# NetDesk build plan
+
+The working checklist for the build. **Source of truth: `docs/PROPOSAL.md` §16.** Tables, endpoints, settings and prompts live in the proposal (§7, §8, §9, §12.4); this file does not copy them, so the two cannot drift.
+
+Items tagged **[refined]** come from the proposal's *Refined plan*. Items tagged **[audit]** come from the gaps audit of 23 Nov 2026 and are scheduled in the phase where they become due.
+
+## How every phase runs
+
+1. `/phase <n>`: plan, then wait for "go".
+2. One task at a time: tests first → smallest change → `uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest -q` → small conventional commit.
+3. Gate: check every "Done when" item and record PASS/FAIL with the command output.
+4. Viva notes in `docs/learning/phase-<n>.md`, then a **2-minute recorded explanation** of the phase's code. [refined]
+
+## Timeline
+
+| Phase | Effort | Gate |
+| --- | --- | --- |
+| 0 Scope freeze | 0.5 d | — |
+| 1 Foundation | 1.5 d | **Gate 0:** `docker compose up` serves `/docs`; CI green |
+| 2 Database and domain API | 3 d | — |
+| 3 Authentication and authorization | 2 d | **Gate 1:** every access test green |
+| 4 LLM, tools and chat | 3 d | — |
+| 5 RAG | 3 d | **Gate 2:** eval run, zero leaks |
+| 6 MCP | 2 d | — |
+| 7 Frontend | 4 d | — |
+| 8 Hardening and QA | 2 d | — |
+| 9 Deployment | 1.5 d | **Gate 3:** live smoke test passes |
+| 10 Submission | 2 d | — |
+
+About 24 working days (about 22 without P1). The frontend agent may start after Gate 1.
+
+## Phase 0 — Scope freeze (0.5 d)
+
+- [x] Move the planning docs into `docs/`; init git with a `.gitignore` that keeps `.env` out.
+- [x] Correct the proposal's status (no code yet) and make `ChatReply.message_id` a `UUID`.
+- [x] Rewrite this file to match §16.
+- [x] Update PRD, TRD, SCHEMA, APP_FLOW and AGENT to the Refined plan.
+- [x] Update UI, FRONTEND_AGENT_BRIEF and RULES: P0 frontend = 9 core pages. [refined]
+- [x] Write `docs/HUMAN_TODO.md`.
+- [x] Settle open design points in the proposal: id types, bill due date, complaint status, who creates complaints, soft chat delete, 413.
+- [ ] Human: send the instructor the §4 conflicts; ask classmates which LLM and embedding model the class used; book two ISP visits.
+
+**Done when:** the instructor question is sent, the docs agree with each other, and the P0 list is frozen.
+
+## Phase 1 — Foundation (1.5 d)
+
+- [ ] `pyproject.toml` and `uv.lock` (committed); `app/main.py` with `/api/v1/health`.
+- [ ] `app/core/config.py`: pydantic-settings, secrets as `SecretStr`; startup fails without `DATABASE_URL` or `JWT_SECRET_KEY`.
+- [ ] Declare the flags used in later phases now, so `.env.example` is complete from day one: `ALLOW_CUSTOMER_COMPLAINTS`, `CHAT_ENABLED`, `CHAT_DAILY_LIMIT_CUSTOMER`, `CHAT_DAILY_LIMIT_STAFF`, `CHAT_DAILY_LIMIT_GLOBAL`, `EMBEDDINGS_PROVIDER` (`tei | hf_inference | fake`), `MCP_ALLOWED_HOSTS`, `MCP_STDIO_USER_EMAIL`. [audit]
+- [ ] `.env.example` lists every Settings field, each comment on its own line. [audit]
+- [ ] Error envelope and global handlers; request-ID middleware; JSON logging.
+- [ ] Alembic with the async template.
+- [ ] `Dockerfile` and `compose.yaml` (db, embeddings, api). Start the TEI image download early.
+- [ ] `.github/workflows/ci.yml`: ruff, mypy, pytest.
+- [ ] `tests/test_rubric_rules.py` [refined][audit]:
+  - no `create_all(` in `app/`, `tests/`, `scripts/` or `migrations/`;
+  - `uv.lock` tracked and `.env` untracked (`git ls-files`);
+  - every Settings field appears in `.env.example`;
+  - a missing `JWT_SECRET_KEY` fails at startup;
+  - every route outside `/health`, `/auth/register`, `/auth/login` and the docs has an auth dependency;
+  - 422 bodies contain no `input`; 500 bodies contain no traceback.
+- [ ] `scripts/smoke.sh <base-url>`: health first; exit non-zero on any failure. Extended in Phases 3, 4, 6 and 9. [audit]
+- [ ] README skeleton: placeholders for the three submission links, the cold-start note, known limits and the AI-assistance section. [refined][audit]
+
+**Tests:** startup fails without a secret; health returns 200; an unknown route returns the envelope with 404; a forced error returns 500 without a traceback.
+**Done when (Gate 0):** `docker compose up` serves `/docs`, and CI is green on GitHub.
+
+## Phase 2 — Database and domain API (3 d)
+
+- [ ] Models and migration `0001_core` (ids: `int` for roles, areas and packages; `uuid` everywhere else, §7.2).
+- [ ] Modules: areas, packages, connections, billing, complaints, notices; filters, search `q`, limit/offset with a total.
+- [ ] Idempotent monthly bill generation; `due_date` is the 10th of the month after `period` (§7.2).
+- [ ] Complaint status rule (§7.2): only the allowed changes, any other → 409. Decide whether a status update carries a note (§11.2 shows one; §8.1 has no field). [audit]
+- [ ] `scripts/seed.py`: idempotent, synthetic data only.
+- [ ] Migration `0002_payment_trail`; payment verification by TrxID (409 on reuse).
+- [ ] A **stub** `get_current_user` and `require_roles` on every route now, so Phase 3 swaps the stub instead of retrofitting checks.
+
+**Tests:** CRUD with filters; 404, 409 and 422 cases; generating a month twice; TrxID reuse; seeding twice; `alembic upgrade head` on an empty DB; `alembic check` shows no drift.
+**Done when:** every endpoint in §8.1, except auth, users, chat and knowledge, matches the contract.
+**Risk:** business rules leaking into controllers.
+
+## Phase 3 — Authentication and authorization (2 d)
+
+- [ ] Argon2id (19456 KiB, time cost 2, parallelism 1); PyJWT HS256, 30-minute expiry, `sub` only.
+- [ ] Claim-style register; OAuth2-form login; `/auth/me`; admin user endpoints; replace the stub.
+- [ ] Rate-limit login and register on the forwarded IP.
+- [ ] Enforce `ALLOW_CUSTOMER_COMPLAINTS` in the complaints service. [refined]
+- [ ] `smoke.sh`: add a login step. [audit]
+
+**Tests:** the auth row of §13.1; identical 401 bodies for unknown email and wrong password; dummy hash check; IDOR → 404; customer write → 403.
+**Done when (Gate 1):** every access test passes.
+
+## Phase 4 — LLM, tools and chat (3 d)
+
+- [ ] LLM client and `FakeLLM`; prompt v1.
+- [ ] Migration `0003_chat`; chat module: sessions, messages, history window, daily quotas (`CHAT_DAILY_LIMIT_*`), kill switch (`CHAT_ENABLED`); deleting a session is soft (`deleted_at`, §7.2).
+- [ ] Tool registry: 4 role variants over 2 services, each wrapper ≤ 20 lines; the registry re-checks the role; at most 3 tool rounds. [refined]
+- [ ] Usage tracking; provider failures → 503.
+- [ ] One parametrized authorization test covers all four tools. [refined]
+- [ ] Decide and add to §8.2 how the client gets "messages left today" and recognises a no-information reply (both are shown in §11.2 but no `ChatReply` field exists yet). [audit]
+- [ ] `smoke.sh`: add one chat turn. [audit]
 
-## 4. Data model (B3)
+**Tests:** the tool-calling row of §13.1; a follow-up question uses history; the 31st message gets 429.
+**Done when:** a customer gets their exact bill amount in Bangla from the real model.
+**Risk:** free-tier rate limits; use `FakeLLM` day to day.
 
-Six tables. All have `id` and `created_at`.
+## Phase 5 — RAG (3 d)
 
-| Table | Columns | Constraints |
-|---|---|---|
-| **users** | full_name, email, phone, password_hash, role, is_active | email unique; role is one of admin, technician, customer |
-| **packages** | name, speed_mbps, monthly_price, is_active | name unique |
-| **connections** | customer_code, customer_id, package_id, area, address, status, connected_on | customer_code unique (like `MIR-0042`); FKs to users and packages; status is active, suspended or disconnected |
-| **bills** | connection_id, billing_month, amount, status, paid_at, method | unique (connection_id, billing_month); status unpaid or paid; method bkash, nagad or cash |
-| **complaints** | connection_id, category, description, status, technician_id, resolved_at | category no_internet, slow_speed, router, billing or other; status open, assigned or resolved |
-| **knowledge_chunks** | source, chunk_index, content, embedding | embedding is a pgvector column; unique (source, chunk_index) so ingest can be re-run |
+- [ ] Write the 12–15 help articles yourself (bn + en); AI may help translate, check every line. [refined]
+- [ ] Migration `0004_knowledge`; embedding adapters `tei`, `hf_inference`, `fake`, chosen by `EMBEDDINGS_PROVIDER`.
+- [ ] Ingest script; retrieval service; evidence formatting; citation filter; NO_EVIDENCE; distance threshold from config, tuned.
+- [ ] In-memory LRU cache for 512 query embeddings. [refined][audit]
+- [ ] Embedding fallback: if the embedder is down, reply NO_EVIDENCE with reason `knowledge_unavailable` and report `embeddings: degraded` on health. [audit]
+- [ ] Decide the live embedding path now (option A: HF PRO, $9/month; option B: self-hosted), not on deploy day. [refined][audit]
+- [ ] Write the 20 eval cases yourself; run `scripts/eval_chat.py`. [refined]
 
-Notes:
+**Tests:** the RAG row of §13.1; a cache hit skips the embedder; the fallback path.
+**Done when (Gate 2):** `docs/EVAL_RESULTS.md` has real, dated numbers with zero permission leaks and zero successful injections.
+**Risk:** weak Bangla recall; try `multilingual-e5-base` first.
 
-- The embedding column size must equal your embedding model's output size. Keep the number in one setting.
-- The first migration runs `CREATE EXTENSION IF NOT EXISTS vector`.
-- Never call `create_all`. Every table arrives through an Alembic migration.
+## Phase 6 — MCP (2 d)
 
----
+- [ ] Server with 2 tools, 1 resource and 1 prompt; mount at `/mcp` with the lifespan.
+- [ ] `transport_security` with allowed hosts read from `MCP_ALLOWED_HOSTS`. [refined]
+- [ ] Staff-only JWT middleware; `netdesk-mcp` stdio script (acts as `MCP_STDIO_USER_EMAIL`, logs to stderr only).
+- [ ] Client tests over both transports; a manual check in MCP Inspector.
+- [ ] One CI test starts real uvicorn and lists the MCP tools, so the lifespan is exercised. [refined][audit]
+- [ ] `smoke.sh`: an MCP tool-list call, and a wrong `Host` header that must get 421. [refined][audit]
 
-## 5. API contract (B4, B5, B10)
+**Done when:** the MCP acceptance criterion in §13.3 passes locally.
+**Risk:** SDK names differ between versions (`MCPServer` or `FastMCP`); pin the version and check it.
 
-All paths start with `/api/v1`.
+## Phase 7 — Frontend (4 d, `frontend/` only)
 
-| Method and path | Who | Success | Errors |
-|---|---|---|---|
-| POST `/auth/register` | anyone | 201 | 409 email exists, 422 |
-| POST `/auth/login` | anyone | 200 + JWT | 401 (same message for wrong email and wrong password) |
-| GET `/auth/me` | logged in | 200 | 401 |
-| GET `/packages` | logged in | 200 | 401 |
-| GET `/packages/{id}` | logged in | 200 | 404 |
-| POST `/packages` | admin | 201 | 403, 409, 422 |
-| PATCH `/packages/{id}` | admin | 200 | 403, 404, 409 |
-| DELETE `/packages/{id}` | admin | 204 | 403, 404, 409 if in use |
-| GET `/connections` | admin, technician | 200 | 403 |
-| GET `/connections/me` | customer | 200 | 404 if none yet |
-| GET `/connections/{id}` | admin, technician | 200 | 404 |
-| POST `/connections` | admin | 201 | 403, 404 bad customer/package, 409 duplicate code |
-| PATCH `/connections/{id}` | admin | 200 | 403, 404 |
-| DELETE `/connections/{id}` | admin | 204 | 403, 404 |
-| GET `/bills` | admin all; customer own only | 200 | 401 |
-| POST `/bills` | admin | 201 | 409 same month twice |
-| PATCH `/bills/{id}/pay` | admin | 200 | 404, 409 already paid |
-| GET `/complaints` | admin, technician all; customer own | 200 | 401 |
-| POST `/complaints` | customer (own connection), admin | 201 | 403, 404 |
-| PATCH `/complaints/{id}` | admin, technician | 200 | 403, 404 |
-| POST `/chat` | logged in | 200 | 401, 422 |
-| GET `/health` | anyone | 200 | |
+- [ ] Generate API types from `/openapi.json`.
+- [ ] The 9 P0 pages: login, claim, customer home, assistant, my complaints, technician queue, admin connections, bills, notices. [refined]
+- [ ] Role navigation; error mapping from the envelope; chat UI with tool and source chips.
+- Packages, users, knowledge and the dashboard are P1; Swagger covers them meanwhile.
 
-**Marked domain API (B4): `connections`.** Full CRUD, admin-only writes, and the list takes `area`, `status` and `search` (name, phone or customer code).
+**Done when:** each role completes its main workflow in the browser against the local API.
 
-**Check with your instructor:** the rubric says "domain writes are admin only", but customers create complaints and technicians update them. If that is not accepted, let only admin and technician create complaints.
+## Phase 8 — Hardening and QA (2 d)
 
-Error rules (B5):
+- [ ] A test for every row of the security matrix (§10.2); body size limit; log redaction.
+- [ ] pip-audit and gitleaks in CI; coverage report.
+- [ ] Measure p50/p95 for chat and list endpoints; fix eval failures; P1 items if time allows.
 
-- Custom classes: NotFound, Conflict, Unauthorized, Forbidden. One global handler each.
-- Database unique violations are caught and turned into Conflict. The raw database message never reaches the client.
-- One catch-all handler returns a plain 500 body with no stack trace.
-- One error body shape everywhere, for example `{"error": {"code": "...", "message": "..."}}`.
+**Done when:** CI is green with the security tests, and the measured numbers are written down.
 
----
+## Phase 9 — Deployment (1.5 d)
 
-## 6. Auth design (B10)
+- [ ] Neon project; Render web service and static site from `render.yaml`; env vars (`MCP_ALLOWED_HOSTS` includes the Render host; `ssl=require`).
+- [ ] Seed and ingest against Neon; run the parity test.
+- [ ] Run `smoke.sh` against the live URL, including the MCP tool list and host check. [refined][audit]
+- [ ] Warm Render (`/api/v1/health`) before grading; keep the cold-start note next to the live link. [refined][audit]
+- [ ] Demo accounts and the pricing table in the README (prices labelled hypotheses).
 
-- Hash with argon2.
-- JWT holds the user id and an expiry. Nothing else.
-- On every request: verify the token, load the user from the database, read the **role from the database**, not from the token.
-- Register always creates a `customer`. The first admin and the technicians come from the seed script; the admin can change a user's role later.
-- Wrong email and wrong password return the identical 401 body.
-- Two dependencies: "current user" and "require role(...)".
+**Done when (Gate 3):** the smoke test passes against the live URL from a private browser window.
 
----
+## Phase 10 — Submission (2 d)
 
-## 7. Agent design (B6, B7, B8)
+- [ ] Finish the README and fill the three link placeholders.
+- [ ] Record all five flows **locally** for the video, so it does not depend on free tiers; plan two takes. [refined]
+- [ ] Only sourced facts or interview notes in the README and video; everything else is labelled a hypothesis. [refined]
+- [ ] Pricing: at most 3 free pilots; no profitability claim. [refined]
+- [ ] Upload the video to Drive ("anyone with the link"); check all three links in a private window; warm Render first. [audit]
+- [ ] Tag `v1.0.0`; case study, LinkedIn text and resume bullets with measured numbers only.
 
-**System prompt must state:** it is the support assistant of this ISP; it answers only about connections, bills, complaints and the operator's documents; it uses tools for account facts and never guesses amounts; it answers from the retrieved documents and says clearly when they do not cover the question; it replies in the user's language.
+**Done when:** every box in §18 is ticked.
 
-**Chat request:** the full message list (old turns plus the new one). The server keeps no chat history, which satisfies multi-turn simply.
+## Cut order
 
-**Chat response:** the reply, the list of tools that ran, and the document sources used. The frontend shows these, and they make the demo easy to follow.
+If you fall behind, cut in this order: owner dashboard metrics → CSV import → Playwright → eval growth beyond 20 cases → technician UI polish.
+**Never cut:** auth and tool-authorization tests, error handling, MCP over both transports, the README quickstart.
 
-**Tools (both read the real database through services):**
+## Refined plan → where it lands
 
-| Tool | Input from the model | Returns |
-|---|---|---|
-| Bill status | none for a customer; a customer code for staff | unpaid months, total due, last payment date |
-| Open complaints by area | area name (defaults to the customer's own area) | count, oldest open complaint, categories |
-
-**Security rule:** the tool takes the user from the JWT, never from the model's arguments. A customer must not be able to read another customer's bill by asking. Staff may pass a customer code.
-
-**Tool loop:** send messages and tool definitions → if the model asks for a tool, run it, append the result, call again → stop when the model answers in text. Cap the loop at a few rounds.
-
-**RAG flow per question:**
-
-1. Embed the latest user message.
-2. Fetch the nearest chunks by vector distance.
-3. Drop chunks beyond a distance limit (a setting you tune).
-4. If chunks remain, add them to the prompt as context with their sources.
-5. If none remain, tell the model no document matched, and the system prompt makes it say so.
-
-Test question for "nothing found": something the documents do not cover, like "Do you sell Starlink?".
-
-**Ingest script:** read each file in `knowledge/`, split into overlapping chunks, embed, upsert by (source, chunk_index).
-
-**Documents to write (in `knowledge/`):** troubleshooting, packages and prices, payment guide, policies (house shift, reconnect fee, support hours), FAQ.
-
----
-
-## 8. MCP design (B9)
-
-| Piece | What |
-|---|---|
-| Tool 1 | Bill status by customer code |
-| Tool 2 | Open complaints by area |
-| Resource | Active package list |
-| Prompt | Due-bill reminder message for a customer |
-| HTTP | Mounted in the FastAPI app at `/mcp` |
-| stdio | A separate entry point that starts the same server |
-
-- Both transports import one server object, and that server calls the same services as the chat tools.
-- MCP has no logged-in customer, so its tools take a customer code. Treat it as a staff-side interface and say so in the README.
-- Test both transports with the MCP Inspector before recording.
-- Follow the class code and the SDK docs for the exact mounting steps; the SDK changes between versions.
-
----
-
-## 9. Settings (B1)
-
-Every one of these appears in `.env.example` with a fake value.
-
-| Setting | Required secret? |
-|---|---|
-| DATABASE_URL | yes |
-| JWT_SECRET | yes |
-| JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES | no, has default |
-| LLM_API_KEY | yes |
-| LLM_MODEL | no |
-| EMBEDDING_BASE_URL, EMBEDDING_MODEL, EMBEDDING_DIM | no |
-| RAG_TOP_K, RAG_MAX_DISTANCE | no |
-| CORS_ORIGINS | no |
-| SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD | yes for the seed script |
-
-Required secrets have **no default**, so the app crashes at start when one is missing. Prove it once and show it in the video.
-
----
-
-## 10. Docker (B11)
-
-Three services in `docker-compose.yml`:
-
-| Service | Notes |
-|---|---|
-| db | A Postgres image that ships with pgvector; a named volume; a healthcheck |
-| embeddings | The embedding server your class used; a volume for the model so it is not downloaded every start |
-| backend | Built from your Dockerfile; starts after db is healthy; runs migrations, then the server |
-
-Final test: clone into a new folder, copy `.env.example` to `.env`, fill in the keys, run `docker compose up`, then the seed and ingest commands exactly as the README says. If any step needs knowledge that is not in the README, fix the README.
-
----
-
-## 11. Step by step
-
-Commit after each step with the message shown.
-
-**Phase 0 — Repo**
-1. Create the repo. Add `.gitignore` first (`.env`, `.venv`, `__pycache__`). → `chore: init repo`
-
-**Phase 1 — Setup (B1)**
-2. Start the project with uv; add dependencies; commit `pyproject.toml` and `uv.lock`. → `chore: add dependencies`
-3. Write settings and `.env.example`. Start the app with a secret removed and see it fail. → `feat: settings with required secrets`
-4. Create the app, the `/api/v1` router and the health endpoint. → `feat: app skeleton and health`
-
-**Phase 2 — Docker early (B11)**
-5. Write the Dockerfile and compose file with db and embeddings. Bring the stack up. → `feat: docker compose stack`
-
-**Phase 3 — Database (B3)**
-6. Async engine, session and `get_db`. → `feat: async database session`
-7. Set up Alembic for async. First migration: vector extension and users. → `feat: users table migration`
-
-**Phase 4 — Errors and auth (B5, B10)**
-8. Custom exceptions and global handlers. → `feat: global error handlers`
-9. Hashing and JWT helpers. → `feat: password hashing and jwt`
-10. Register, login, me, and the two dependencies. Test 401, 403 and the identical login error. → `feat: auth endpoints and roles`
-
-**Phase 5 — Domain (B2, B4)**
-11. Packages: model, migration, repository, service, controller. → `feat: packages crud`
-12. Connections with filters and search. → `feat: connections crud with filters`
-13. Bills. → `feat: bills`
-14. Complaints. → `feat: complaints`
-15. Seed script: admin, technicians, customers, packages, connections, three months of bills, complaints. → `feat: seed script`
-16. Walk every status code in Swagger: 201, 404, 409, 401, 403, 422. → `fix: ...` as needed
-
-**Phase 6 — LLM chat (B6)**
-17. LLM client inside `app/integrations/llm/`. → `feat: llm integration layer`
-18. Chat endpoint with system prompt and multi-turn. → `feat: chat endpoint`
-
-**Phase 7 — Tools (B7)**
-19. Bill status tool end to end. → `feat: bill status tool`
-20. Complaints-by-area tool. → `feat: area complaints tool`
-21. Test as customer A asking for customer B's bill; it must fail. → `fix: scope tools to current user`
-
-**Phase 8 — RAG (B8)**
-22. Knowledge table migration. → `feat: knowledge chunks table`
-23. Embedding client. → `feat: embedding integration`
-24. Write the documents; write the ingest script. → `feat: ingest script and documents`
-25. Retrieval inside chat, with the distance limit and the "nothing found" answer. → `feat: rag in chat`
-
-**Phase 9 — MCP (B9)**
-26. Server with two tools, the resource and the prompt. → `feat: mcp server`
-27. Mount at `/mcp`. → `feat: mcp over http`
-28. stdio entry point. Test both in the Inspector. → `feat: mcp over stdio`
-
-**Phase 10 — Frontend (C2, C5)**
-29. Build from `FRONTEND_AGENT_BRIEF.md`. AI is allowed here. → `feat: frontend`
-
-**Phase 11 — Ship (D, Section 2)**
-30. README: what and who, setup, example requests, business model, three links. → `docs: readme`
-31. Deploy (Section 12). → `chore: deploy config`
-32. Fresh-clone test. → `fix: ...` as needed
-
-**Phase 12 — Video (C)**
-33. Record 5–10 minutes (Section 13). Upload to Drive, set "Anyone with the link can view", add the link to the README.
-
----
-
-## 12. Deploy on Render
-
-1. Create a Postgres database on Render. The first migration enables the vector extension.
-2. Create a web service from your Dockerfile. Set every setting from `.env.example` in the dashboard.
-3. Run migrations on start. Run seed and ingest once against the Render database.
-4. **Embedding service:** compose does not run on Render. Either host the embedding container as a second service, or point `EMBEDDING_BASE_URL` at a hosted embedding API with the same vector size. Decide this early; it is the most likely blocker.
-5. Deploy the frontend as a static site. Add its address to `CORS_ORIGINS`.
-6. Open `<your-url>/docs` in a private window. This is what the marker opens.
-7. Free services can sleep and free databases can expire. Check Render's current limits, and open the link shortly before the marking date.
-
----
-
-## 13. Video outline
-
-| Minutes | Show |
-|---|---|
-| 0–1 | What NetDesk is, who buys it, the problem, the frontend |
-| 1–5 | The five flows, pointing at your files: API, chat + tools, RAG, MCP, auth |
-| 5–7 | Live: login, a CRUD call, a chat that uses a tool, a RAG answer, a "nothing found" answer, MCP in the Inspector |
-| 7–9 | Your own code: why layers, why role from the database, why the tool ignores model-supplied user ids |
-| 9–10 | Business model and the three links |
-
----
-
-## 13a. Real-product depth
-
-A demo shows that features exist. A real product handles what happens in an actual ISP office. Finish every rubric item first, then add these in order; each is small.
-
-**Talk to one real operator first.** Ask your own ISP's office: how do they bill, what do customers call about, when do they cut a line? Thirty minutes of answers will shape your fields, documents and seed data better than anything else, and gives you a true story for the video.
-
-| # | Real-world rule | What it adds |
-|---|---|---|
-| 1 | Bills are created for everyone at the start of a month | An admin action "generate bills for this month" that skips connections already billed |
-| 2 | Payments have a trail | Transaction ID and "received by" on a paid bill |
-| 3 | Lines get cut for non-payment | Connections with two or more unpaid months can be suspended, and paying reactivates them |
-| 4 | Complaints have a life cycle | Timestamps for opened, assigned, resolved; "hours open" shown to staff |
-| 5 | Outages hit a whole area | An area notice the admin posts ("fibre cut in Mirpur 10, fixed by 6pm"); the complaints tool returns it, so the agent tells customers before they complain |
-| 6 | Lists get long | Pagination and sorting on every list endpoint |
-| 7 | Records are not really deleted | Deleting a connection that has bills is refused with 409; it is disconnected instead |
-| 8 | Owners want numbers | A summary endpoint: active connections, this month's collected and due, open complaints per area |
-| 9 | Customers write in Bangla | Documents in both languages; test Bangla questions against retrieval |
-| 10 | Abuse happens | A limit on login attempts and on chat requests per user |
-
-**Seed data that looks real:** Bangladeshi names, real Dhaka areas, package names like "Home 20 Mbps", three months of bills where most are paid and some are late, complaints with believable text, one area with a cluster of open complaints so the outage flow can be shown.
-
-**Small things markers and buyers both notice:** consistent error bodies, clear Swagger descriptions and examples on every endpoint, a health endpoint that checks the database, structured logs without secrets, and a few tests on auth and the tool scoping rule.
-
----
-
-## 14. Requirement checklist
-
-Tick every line before you submit.
-
-**B1 Setup**
-- [ ] uv, with `pyproject.toml` and `uv.lock` committed
-- [ ] Every endpoint under `/api/v1`
-- [ ] Settings via pydantic-settings from `.env`
-- [ ] `.env.example` lists every setting; real `.env` not committed
-- [ ] App refuses to start when a required secret is missing
-
-**B2 Structure**
-- [ ] One folder per feature under `app/modules/`
-- [ ] Each has controllers, services, repositories, schemas, models, dependencies
-- [ ] Controllers do HTTP only; logic in services; queries in repositories; `Depends` everywhere
-
-**B3 Database**
-- [ ] PostgreSQL with async SQLAlchemy
-- [ ] 3+ tables including users and a domain table
-- [ ] Every change through Alembic; no `create_all`
-- [ ] Seed script fills the domain table
-
-**B4 Domain API**
-- [ ] Create, list, get one, update, delete
-- [ ] Pydantic request and response schemas
-- [ ] List has a filter or search
-
-**B5 Errors**
-- [ ] Custom not found, conflict, unauthorized, forbidden with global handlers
-- [ ] 201, 404, 409, 401, 403, 422 all correct
-- [ ] No stack traces or raw database errors in responses
-
-**B6 LLM chat**
-- [ ] Calls go through `app/integrations/llm/`
-- [ ] System prompt sets role and limits
-- [ ] Endpoint accepts previous messages
-- [ ] Works on the live link
-
-**B7 Tools**
-- [ ] 2+ tools on the real database
-- [ ] The model decides when to call
-- [ ] Your code runs the tool, returns the result, and the answer uses it
-
-**B8 RAG**
-- [ ] Knowledge table with a pgvector column
-- [ ] Ingest script chunks, embeds, stores
-- [ ] Answers come from retrieved chunks
-- [ ] Says so when nothing relevant is found
-
-**B9 MCP**
-- [ ] 2+ tools, 1 resource, 1 prompt
-- [ ] Works over HTTP at `/mcp`
-- [ ] Works over stdio
-- [ ] Uses the real services and database
-
-**B10 Auth**
-- [ ] POST `/auth/register`, POST `/auth/login` (JWT), GET `/auth/me`
-- [ ] argon2 or bcrypt
-- [ ] Tokens expire
-- [ ] 2+ roles read from the database
-- [ ] Domain writes admin only
-- [ ] Same login error for wrong email and wrong password
-
-**B11 Docker**
-- [ ] Dockerfile
-- [ ] Compose starts backend, Postgres with pgvector, embedding service
-- [ ] Fresh clone + README steps = working app
-
-**C Video and UI**
-- [ ] 5–10 minutes, own voice, editor and running app visible
-- [ ] Overview, all five flows, live demo, own-code walk-through
-- [ ] User-friendly frontend shown
-
-**D README and Git**
-- [ ] What it does and who it is for
-- [ ] Setup: clone, `.env`, Docker, migrations, seed, ingest
-- [ ] Example requests for login, CRUD and chat
-- [ ] Three links: repo, Drive video, live Swagger
-- [ ] Small commits with `feat:`, `fix:`, `docs:`
-- [ ] No `.env`, secrets, `__pycache__` or `.venv` in history
-
-**E Sellable**
-- [ ] Named customer, real problem, realistic fields and roles
-- [ ] Business model stated in README or video
-- [ ] Why someone would pay
-- [ ] Demo works end to end with real-looking data
-
-**Section 2 links**
-- [ ] Repo opens for anyone
-- [ ] Drive video set to "Anyone with the link can view"
-- [ ] Live link opens Swagger at `/docs`
+| Refined-plan row | Scheduled in |
+| --- | --- |
+| Scope vs time (9 P0 pages) | Phase 0 docs, Phase 7 |
+| Fragile live demo | Phase 5 (embedding path, LRU cache), Phase 9 (warm Render), Phase 10 (local recording) |
+| Complaint-write conflict | Phase 0 (ask the instructor), Phase 1 (flag), Phase 3 (enforce) |
+| Explaining AI-written code | Every phase (2-minute explanation, small commits); Phase 1 README AI section; Phase 5 (own articles and eval cases) |
+| Quiet rubric slips | Phase 1 (`tests/test_rubric_rules.py`) |
+| MCP failing live | Phase 1 (`MCP_ALLOWED_HOSTS`), Phase 6 (real-uvicorn CI test, smoke), Phase 9 (live smoke) |
+| Wrong channel for customers | Phase 10 (README and video pitch: web assistant as channel one) |
+| Unverified market claims | Phase 10; interviews in `HUMAN_TODO.md` |
+| Single-tenant pilots lose money | Phase 10 (at most 3 free pilots) |
+| Tool-wrapper complexity | Phase 4 (≤ 20-line wrappers, one parametrized test) |

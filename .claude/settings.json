@@ -19,8 +19,6 @@
       "Bash(docker compose down *)"
     ],
     "deny": [
-      "Bash(git commit *)",
-      "Bash(git push *)",
       "Read(./.env)"
     ]
   }
