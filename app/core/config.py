@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     embeddings_url: str = "http://embeddings:80"
     hf_token: SecretStr | None = None
     # Cosine distance limit for evidence (1 - similarity). Tuned on the eval set (PROPOSAL §9.6).
-    rag_max_distance: float = 0.20
+    rag_max_distance: float = 0.16  # tuned on the eval set (docs/EVAL_RESULTS.md)
 
     # Chat limits and kill switch (Phase 4)
     chat_enabled: bool = True

@@ -32,7 +32,7 @@ class BrokenEmbedder(FakeEmbedder):
 @pytest.fixture(autouse=True)
 def _loose_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     """The fake embedder scores by shared words, far below E5's similarity band, so the
-    production threshold (0.20) would find nothing. Real values are tuned by the eval."""
+    production threshold (0.16) would find nothing. Real values are tuned by the eval."""
     monkeypatch.setattr(get_settings(), "rag_max_distance", 0.85)
 
 
