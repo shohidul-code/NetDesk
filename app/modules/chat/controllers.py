@@ -12,9 +12,16 @@ from app.integrations.llm.types import LLMClient
 from app.modules.auth.dependencies import CurrentScope, CurrentUser
 from app.modules.chat import services
 from app.modules.chat.models import ChatMessage, ChatSession
-from app.modules.chat.schemas import ChatMessageCreate, ChatReply, MessageRead, SessionRead
+from app.modules.chat.schemas import (
+    ChatMessageCreate,
+    ChatReply,
+    ChatUsage,
+    MessageRead,
+    SessionRead,
+)
 
 router = APIRouter(prefix="/chat/sessions", tags=["chat"])
+usage_router = APIRouter(prefix="/chat", tags=["chat"])
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 LLM = Annotated[LLMClient, Depends(get_llm_client)]
@@ -55,3 +62,8 @@ async def send_message(
 async def delete_session(session: Session, scope: CurrentScope, chat_id: uuid.UUID) -> Response:
     await services.delete_session(session, scope, chat_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@usage_router.get("/usage", response_model=ChatUsage)
+async def get_usage(session: Session, scope: CurrentScope) -> ChatUsage:
+    return await services.usage(session, scope)

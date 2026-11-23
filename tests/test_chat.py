@@ -213,6 +213,32 @@ async def test_31st_message_of_the_day_is_429(
     assert int(response.headers["Retry-After"]) > 0
 
 
+async def test_usage_shows_messages_left_before_any_message(
+    client: AsyncClient, db_session: AsyncSession, as_user: AsUser
+) -> None:
+    """The assistant page can show the count on load, not only after the first reply."""
+    customer = await as_user("customer")
+    earlier = max(day_start(datetime.now(UTC)), datetime.now(UTC) - timedelta(minutes=5))
+    await add_user_messages(db_session, customer, 2, earlier)
+
+    response = await client.get("/api/v1/chat/usage")
+
+    assert response.status_code == 200
+    assert response.json() == {"messages_left_today": 28, "daily_limit": 30}
+
+
+async def test_usage_never_goes_below_zero(
+    client: AsyncClient, db_session: AsyncSession, as_user: AsUser
+) -> None:
+    customer = await as_user("customer")
+    earlier = max(day_start(datetime.now(UTC)), datetime.now(UTC) - timedelta(minutes=5))
+    await add_user_messages(db_session, customer, 31, earlier)
+
+    response = await client.get("/api/v1/chat/usage")
+
+    assert response.json()["messages_left_today"] == 0
+
+
 async def test_seventh_message_in_a_minute_is_429(
     app: FastAPI, client: AsyncClient, db_session: AsyncSession, as_user: AsUser
 ) -> None:

@@ -27,7 +27,7 @@ from app.modules.agent import registry
 from app.modules.auth.dependencies import Scope
 from app.modules.chat import repositories
 from app.modules.chat.models import ChatMessage, ChatSession
-from app.modules.chat.schemas import ChatReply, Source, TokenUsage, ToolUse
+from app.modules.chat.schemas import ChatReply, ChatUsage, Source, TokenUsage, ToolUse
 from app.modules.knowledge import retrieval
 from app.modules.users.models import User
 
@@ -103,13 +103,26 @@ def _quota_error(message: str, now: datetime) -> QuotaExceededError:
     return error
 
 
+def _daily_limit(scope: Scope) -> int:
+    settings = get_settings()
+    return settings.chat_daily_limit_staff if scope.is_staff else settings.chat_daily_limit_customer
+
+
+async def usage(session: AsyncSession, scope: Scope) -> ChatUsage:
+    """Messages left today, for the assistant page before the first message is sent.
+    Counted the same way as _check_limits, so the two always agree."""
+    limit = _daily_limit(scope)
+    used = await repositories.count_user_messages_since(
+        session, scope, day_start(datetime.now(UTC))
+    )
+    return ChatUsage(messages_left_today=max(limit - used, 0), daily_limit=limit)
+
+
 async def _check_limits(session: AsyncSession, scope: Scope, now: datetime) -> int:
     """Raise 429 if a limit is hit; return how many messages the user has left today."""
     settings = get_settings()
     start = day_start(now)
-    limit = (
-        settings.chat_daily_limit_staff if scope.is_staff else settings.chat_daily_limit_customer
-    )
+    limit = _daily_limit(scope)
     used_today = await repositories.count_user_messages_since(session, scope, start)
     if used_today >= limit:
         raise _quota_error("You have used today's chat messages. Try again tomorrow.", now)
