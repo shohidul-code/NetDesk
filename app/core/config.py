@@ -8,8 +8,9 @@ The full list and examples are in PROPOSAL §12.4 and `.env.example`.
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +21,22 @@ class Settings(BaseSettings):
     # Required secrets: no default, so startup fails without them.
     database_url: SecretStr
     jwt_secret_key: SecretStr
+
+    @field_validator("database_url")
+    @classmethod
+    def _asyncpg_url(cls, value: SecretStr) -> SecretStr:
+        """Accept the URL Neon's dashboard gives: asyncpg needs the +asyncpg driver, takes
+        ssl= instead of sslmode=, and rejects channel_binding= (PROPOSAL §12.4)."""
+        parts = urlsplit(value.get_secret_value())
+        scheme = (
+            "postgresql+asyncpg" if parts.scheme in ("postgres", "postgresql") else parts.scheme
+        )
+        query = [
+            ("ssl" if key == "sslmode" else key, val)
+            for key, val in parse_qsl(parts.query)
+            if key != "channel_binding"
+        ]
+        return SecretStr(urlunsplit(parts._replace(scheme=scheme, query=urlencode(query))))
 
     # Auth
     access_token_expire_minutes: int = 30

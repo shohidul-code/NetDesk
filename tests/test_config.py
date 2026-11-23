@@ -28,3 +28,26 @@ def test_secrets_are_hidden_in_repr() -> None:
 
     assert os.environ["JWT_SECRET_KEY"] not in text
     assert os.environ["DATABASE_URL"] not in text
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        # Neon's dashboard string, pasted as is (synthetic host and password).
+        (
+            "postgresql://neon_user:pw@ep-test-123.ap-southeast-1.aws.neon.tech/netdesk"
+            "?sslmode=require&channel_binding=require",
+            "postgresql+asyncpg://neon_user:pw@ep-test-123.ap-southeast-1.aws.neon.tech/netdesk"
+            "?ssl=require",
+        ),
+        ("postgres://u:p@h/db", "postgresql+asyncpg://u:p@h/db"),
+        # Already in asyncpg form, or local: unchanged.
+        ("postgresql+asyncpg://u:p@h/db?ssl=require", "postgresql+asyncpg://u:p@h/db?ssl=require"),
+        ("postgresql+asyncpg://netdesk:netdesk@localhost:5433/netdesk", None),
+    ],
+)
+def test_database_url_accepts_neons_default_string(given: str, expected: str | None) -> None:
+    """asyncpg rejects sslmode= and channel_binding= (PROPOSAL §12.4), so they are translated."""
+    settings = Settings(_env_file=None, database_url=given)  # type: ignore[call-arg]
+
+    assert settings.database_url.get_secret_value() == (expected or given)
