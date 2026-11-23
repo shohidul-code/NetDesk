@@ -169,6 +169,19 @@ async def test_token_signed_with_another_key_is_401(
     assert response.status_code == 401
 
 
+async def test_unsigned_alg_none_token_is_401(
+    real_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The classic JWT bypass: a token that says "alg: none" and carries no signature."""
+    user = await _user(db_session)
+    exp = datetime.now(UTC) + timedelta(minutes=5)
+    unsigned = jwt.encode({"sub": str(user.id), "exp": exp}, None, algorithm="none")
+
+    response = await real_client.get("/api/v1/auth/me", headers=_bearer(unsigned))
+
+    assert response.status_code == 401
+
+
 async def test_token_for_unknown_user_is_401(real_client: AsyncClient) -> None:
     unknown = _token(str(uuid.uuid4()))
 
