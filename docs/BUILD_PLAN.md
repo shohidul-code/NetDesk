@@ -146,9 +146,11 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 8 — Hardening and QA (2 d)
 
-- [ ] A test for every row of the security matrix (§10.2); body size limit; log redaction.
-- [ ] pip-audit and gitleaks in CI; coverage report.
-- [ ] Measure p50/p95 for chat and list endpoints; fix eval failures; P1 items if time allows.
+- [x] A test for every row of the security matrix (§10.2, mapped in `docs/SECURITY_TESTS.md`); 64 KB body limit (413); log redaction (also uvicorn's access log).
+- [x] pip-audit, npm audit and gitleaks in CI; Dependabot; coverage report (98%, floor 95%).
+- [x] Measure p50/p95 for chat and list endpoints (`docs/PERFORMANCE.md`).
+- [x] P1: messages left today shown on page load (`GET /chat/usage`).
+- [ ] Remaining eval failures: 3 cases are expectation questions (see EVAL_RESULTS); owner decides.
 
 **Done when:** CI is green with the security tests, and the measured numbers are written down.
 

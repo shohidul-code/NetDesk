@@ -596,6 +596,7 @@ All endpoints live under `/api/v1` and use `Authorization: Bearer <JWT>`. Login 
 | GET | `/chat/sessions/{id}/messages` | Owner | 200 list | 404 |
 | POST | `/chat/sessions/{id}/messages` | Owner | 201 reply | 404, 422; 429 quota; 503 LLM unavailable |
 | DELETE | `/chat/sessions/{id}` | Owner | 204 (soft delete; messages kept for audit) | 404 |
+| GET | `/chat/usage` | Any (own) | 200 `messages_left_today`, `daily_limit` (added in Phase 8) | 401 |
 | GET | `/knowledge/documents` | Technician, admin | 200 list | 403 |
 | — | `/mcp` (Streamable HTTP) | Technician, admin | MCP protocol | 401, 403; 421 if the host is not allowed |
 
