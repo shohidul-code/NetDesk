@@ -27,7 +27,7 @@ netdesk-mcp = "app.mcp.stdio:main"
 
 [build-system]
 # Build-time only: lets uv install the project so the netdesk-mcp script exists.
-requires = ["uv_build>=0.9.0,<0.13"]
+requires = ["uv_build>=0.9.0,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
