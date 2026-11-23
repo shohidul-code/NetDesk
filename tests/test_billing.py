@@ -39,10 +39,12 @@ async def test_generate_twice_creates_then_skips(
     first = await client.post("/api/v1/bills/generate", json={"period": "2026-11"})
     second = await client.post("/api/v1/bills/generate", json={"period": "2026-11"})
 
-    assert first.status_code == 201
-    assert first.json() == {"period": "2026-11", "created": 2, "skipped": 0}
-    assert second.status_code == 201
-    assert second.json() == {"period": "2026-11", "created": 0, "skipped": 2}
+    # Counts are relative, so the test also holds on a database that was seeded.
+    first_body, second_body = first.json(), second.json()
+    assert first.status_code == second.status_code == 201
+    assert first_body["created"] >= 2  # at least our active and suspended connections
+    assert second_body["created"] == 0
+    assert second_body["skipped"] == first_body["created"] + first_body["skipped"]
 
 
 async def test_disconnected_connection_gets_no_bill(
