@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 # Importing each models module registers its tables on Base.metadata for autogenerate.
 import app.modules.areas.models
 import app.modules.billing.models
+import app.modules.chat.models
 import app.modules.complaints.models
 import app.modules.connections.models
 import app.modules.notices.models
