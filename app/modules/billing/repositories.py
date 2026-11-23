@@ -107,3 +107,48 @@ async def unpaid_by_area(session: AsyncSession, scope: Scope, period: str) -> Se
         .order_by(Area.code)
     )
     return (await session.execute(_scoped(query, scope))).all()
+
+
+async def find_connection_for_status(
+    session: AsyncSession, scope: Scope, customer_code: str | None
+) -> Any | None:
+    """Staff: the connection with this code. Customer: their own (lowest code if several)."""
+    query = (
+        select(
+            Connection.id,
+            Connection.customer_code,
+            Connection.customer_name,
+            Connection.status,
+            Package.name.label("package"),
+        )
+        .join(Package, Package.id == Connection.package_id)
+        .order_by(Connection.customer_code)
+        .limit(1)
+    )
+    if scope.is_staff:
+        query = query.where(Connection.customer_code == customer_code)
+    else:
+        query = query.where(Connection.customer_user_id == scope.user_id)
+    return (await session.execute(query)).first()
+
+
+async def recent_bills(
+    session: AsyncSession, scope: Scope, connection_id: uuid.UUID, period: str | None, limit: int
+) -> Sequence[Bill]:
+    query = _scoped(select(Bill).join(Connection, Connection.id == Bill.connection_id), scope)
+    query = query.where(Bill.connection_id == connection_id)
+    if period is not None:
+        query = query.where(Bill.period == period)
+    return (await session.execute(query.order_by(Bill.period.desc()).limit(limit))).scalars().all()
+
+
+async def total_unpaid(session: AsyncSession, scope: Scope, connection_id: uuid.UUID) -> Decimal:
+    query = _scoped(
+        select(func.coalesce(func.sum(Bill.amount_bdt), Decimal(0))).join(
+            Connection, Connection.id == Bill.connection_id
+        ),
+        scope,
+    )
+    query = query.where(Bill.connection_id == connection_id, Bill.status == "unpaid")
+    total: Decimal = (await session.execute(query)).scalar_one()
+    return total

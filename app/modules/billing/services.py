@@ -81,3 +81,42 @@ async def record_payment(
 
 async def unpaid_summary(session: AsyncSession, scope: Scope, period: str) -> Sequence[Any]:
     return await repositories.unpaid_by_area(session, scope, period)
+
+
+async def bill_status(
+    session: AsyncSession,
+    scope: Scope,
+    *,
+    customer_code: str | None = None,
+    period: str | None = None,
+) -> dict[str, Any]:
+    """Bills of one connection for the agent tools. A customer always gets their own
+    connection (`customer_code` is ignored); staff must name one. Errors carry a machine
+    code in `details` that the tool registry hands to the model."""
+    conn = await repositories.find_connection_for_status(session, scope, customer_code)
+    if conn is None:
+        code = "not_found" if scope.is_staff else "no_connection"
+        raise NotFoundError("Connection not found.", details={"code": code})
+    bills = await repositories.recent_bills(session, scope, conn.id, period, limit=6)
+    if period is not None and not bills:
+        raise NotFoundError("No bill for that period.", details={"code": "no_bill_for_period"})
+    total = await repositories.total_unpaid(session, scope, conn.id)
+    result: dict[str, Any] = {
+        "customer_code": conn.customer_code,
+        "package": conn.package,
+        "connection_status": conn.status,
+        "bills": [
+            {
+                "period": b.period,
+                "amount_bdt": f"{b.amount_bdt:.2f}",
+                "status": b.status,
+                "due_date": b.due_date.isoformat(),
+                "paid_at": b.paid_at.isoformat() if b.paid_at else None,
+            }
+            for b in bills
+        ],
+        "total_due_bdt": f"{total:.2f}",
+    }
+    if scope.is_staff:
+        result["customer_name"] = conn.customer_name
+    return result
