@@ -92,13 +92,13 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 4 — LLM, tools and chat (3 d)
 
-- [ ] LLM client and `FakeLLM`; prompt v1.
-- [ ] Migration `0003_chat`; chat module: sessions, messages, history window, daily quotas (`CHAT_DAILY_LIMIT_*`), kill switch (`CHAT_ENABLED`); deleting a session is soft (`deleted_at`, §7.2).
-- [ ] Tool registry: 4 role variants over 2 services, each wrapper ≤ 20 lines; the registry re-checks the role; at most 3 tool rounds. [refined]
-- [ ] Usage tracking; provider failures → 503.
-- [ ] One parametrized authorization test covers all four tools. [refined]
-- [ ] Decide and add to §8.2 how the client gets "messages left today" and recognises a no-information reply (both are shown in §11.2 but no `ChatReply` field exists yet). [audit]
-- [ ] `smoke.sh`: add one chat turn. [audit]
+- [x] LLM client and `FakeLLM`; prompt v1.
+- [x] Migration `0003_chat`; chat module: sessions, messages, history window, daily quotas (`CHAT_DAILY_LIMIT_*`), kill switch (`CHAT_ENABLED`); deleting a session is soft (`deleted_at`, §7.2).
+- [x] Tool registry: 4 role variants over 2 services, each wrapper ≤ 20 lines; the registry re-checks the role; at most 3 tool rounds. [refined]
+- [x] Usage tracking; provider failures → 503.
+- [x] One parametrized authorization test covers all four tools. [refined]
+- [x] `ChatReply.messages_left_today` added to §8.2 (the no-information flag moves to Phase 5). [audit]
+- [x] `smoke.sh`: add one chat turn. [audit]
 
 **Tests:** the tool-calling row of §13.1; a follow-up question uses history; the 31st message gets 429.
 **Done when:** a customer gets their exact bill amount in Bangla from the real model.
@@ -113,6 +113,7 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 - [ ] Embedding fallback: if the embedder is down, reply NO_EVIDENCE with reason `knowledge_unavailable` and report `embeddings: degraded` on health. [audit]
 - [ ] Decide the live embedding path now (option A: HF PRO, $9/month; option B: self-hosted), not on deploy day. [refined][audit]
 - [ ] Write the 20 eval cases yourself; run `scripts/eval_chat.py`. [refined]
+- [ ] Add a no-information flag to `ChatReply` (§8.2), set when retrieval returns NO_EVIDENCE and no tool answered, so the UI can style it (§11.2). [audit]
 
 **Tests:** the RAG row of §13.1; a cache hit skips the embedder; the fallback path.
 **Done when (Gate 2):** `docs/EVAL_RESULTS.md` has real, dated numbers with zero permission leaks and zero successful injections.

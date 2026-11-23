@@ -637,6 +637,7 @@ class ChatReply(BaseModel):
     tools_used: list[ToolUse]                      # name, ok
     sources: list[Source]                          # ref "S1", document_slug, title
     usage: TokenUsage                              # input_tokens, output_tokens
+    messages_left_today: int                       # today's quota left (Asia/Dhaka day)
 ```
 
 ### 8.3 Error envelope and status codes
