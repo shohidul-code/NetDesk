@@ -119,13 +119,13 @@ async def due_bill_reminder(customer_code: str, language: Literal["bn", "en"] = 
         if language == "en":
             return f"Dear {name}, nothing is due on your internet account. Thank you, {isp}."
         return f"প্রিয় {name}, আপনার ইন্টারনেট বিলে কোনো বকেয়া নেই। ধন্যবাদ, {isp}।"
-    by = _long_date(min(unpaid))
+    by = _long_date(min(unpaid))  # the oldest unpaid bill; may already be past
     if language == "en":
         return (
-            f"Dear {name}, your internet bill has ৳{due} due. Please pay by {by} with "
-            f"bKash, Nagad or at the office, and keep the TrxID. Thank you, {isp}."
+            f"Dear {name}, your internet bill has ৳{due} due (due date: {by}). Please pay "
+            f"with bKash, Nagad or at the office, and keep the TrxID. Thank you, {isp}."
         )
     return (
-        f"প্রিয় {name}, আপনার ইন্টারনেট বিলের মোট বকেয়া ৳{due}। অনুগ্রহ করে {by} এর মধ্যে "
+        f"প্রিয় {name}, আপনার ইন্টারনেট বিলের মোট বকেয়া ৳{due} (শেষ তারিখ: {by})। অনুগ্রহ করে "
         f"bKash, Nagad অথবা অফিসে পরিশোধ করুন এবং TrxID রেখে দিন। ধন্যবাদ, {isp}।"
     )

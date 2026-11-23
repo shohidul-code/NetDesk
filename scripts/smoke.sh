@@ -2,8 +2,8 @@
 # Smoke test a running NetDesk API (PROPOSAL §13.1). Exits non-zero on the first failure.
 #   SMOKE_EMAIL=... SMOKE_PASSWORD=... scripts/smoke.sh http://localhost:8000
 #   SMOKE_EMAIL=... SMOKE_PASSWORD=... scripts/smoke.sh https://netdesk-api.onrender.com
-# SMOKE_EMAIL / SMOKE_PASSWORD: a seeded demo account (never printed). SMOKE_CHAT=1 adds a
-# real-model chat turn. Later phases add the MCP tool list and host check (6, 9).
+# SMOKE_EMAIL / SMOKE_PASSWORD: a seeded STAFF demo account (never printed); the MCP step
+# needs staff. SMOKE_CHAT=1 adds a real-model chat turn.
 set -euo pipefail
 
 BASE_URL="${1:?usage: scripts/smoke.sh <base-url>}"
@@ -70,5 +70,28 @@ if [ "${SMOKE_CHAT:-0}" = "1" ]; then
 else
   echo "skip: chat turn (set SMOKE_CHAT=1 to test the real model)"
 fi
+
+# 5. MCP: list tools over Streamable HTTP with the staff token (PROPOSAL §9.7).
+MCP_LIST='{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+mcp_post() {
+  curl -sS -o "$BODY" -w '%{http_code}' --max-time 90 "$@" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -H "Accept: application/json, text/event-stream" -d "$MCP_LIST" "$BASE_URL/mcp"
+}
+code="$(mcp_post)" || fail "/mcp: no response from $BASE_URL"
+[ "$code" = "200" ] || fail "/mcp tools/list returned $code, expected 200: $(head -c 300 "$BODY")"
+grep -q '"lookup_customer_bills"' "$BODY" || fail "/mcp did not list lookup_customer_bills"
+echo "ok: /mcp tools/list -> 200"
+
+# 6. An unknown Host must get 421 (DNS-rebinding protection). Only checked locally: a cloud
+#    host such as Render routes by Host, so a fake Host never reaches our app there.
+case "$BASE_URL" in
+  http://localhost:* | http://127.0.0.1:*)
+    code="$(mcp_post -H "Host: evil.example")" || fail "/mcp host check: no response"
+    [ "$code" = "421" ] || fail "/mcp with an unknown Host returned $code, expected 421"
+    echo "ok: /mcp with an unknown Host -> 421"
+    ;;
+  *) echo "skip: unknown-Host check (only meaningful against localhost)" ;;
+esac
 
 echo "SMOKE PASSED: $BASE_URL"
