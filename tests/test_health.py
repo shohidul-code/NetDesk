@@ -17,7 +17,12 @@ async def test_health_returns_200_with_db_ok(client: AsyncClient) -> None:
     response = await client.get("/api/v1/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": __version__, "db": "ok"}
+    assert response.json() == {
+        "status": "ok",
+        "version": __version__,
+        "db": "ok",
+        "embeddings": "ok",
+    }
 
 
 async def test_health_returns_503_when_db_is_down() -> None:

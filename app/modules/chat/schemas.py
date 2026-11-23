@@ -56,3 +56,6 @@ class ChatReply(BaseModel):
     sources: list[Source]
     usage: TokenUsage
     messages_left_today: int
+    # True when no article was cited and no tool answered: the UI styles it as
+    # "no information" (PROPOSAL §11.2).
+    no_information: bool

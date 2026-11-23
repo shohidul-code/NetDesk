@@ -6,12 +6,16 @@ visibility filter for readers belongs to the retrieval query, not to writing.
 
 import uuid
 from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.knowledge.ingest import ParsedDocument
 from app.modules.knowledge.models import KnowledgeChunk, KnowledgeDocument
+
+if TYPE_CHECKING:
+    from app.modules.auth.dependencies import Scope
 
 
 async def get_document_by_slug(session: AsyncSession, slug: str) -> KnowledgeDocument | None:
@@ -66,3 +70,40 @@ async def list_documents(session: AsyncSession) -> Sequence[KnowledgeDocument]:
 async def count_chunks(session: AsyncSession, document_id: uuid.UUID) -> int:
     query = select(func.count()).where(KnowledgeChunk.document_id == document_id)
     return int((await session.execute(query)).scalar_one())
+
+
+async def search_chunks(
+    session: AsyncSession,
+    scope: "Scope",
+    query_vector: list[float],
+    *,
+    model: str,
+    max_distance: float,
+    limit: int,
+) -> Sequence[Any]:
+    """Nearest chunks by cosine distance (exact scan, no index in P0). Only active
+    documents embedded by the same model, and only what the caller's role may read."""
+    visible = ["public", "staff"] if scope.is_staff else ["public"]
+    distance = KnowledgeChunk.embedding.cosine_distance(query_vector)
+    query = (
+        select(
+            KnowledgeChunk.document_id,
+            KnowledgeChunk.chunk_index,
+            KnowledgeChunk.content,
+            KnowledgeDocument.slug,
+            KnowledgeDocument.title,
+            KnowledgeDocument.language,
+            KnowledgeDocument.source_updated,
+            distance.label("distance"),
+        )
+        .join(KnowledgeDocument)
+        .where(
+            KnowledgeDocument.status == "active",
+            KnowledgeDocument.visibility.in_(visible),
+            KnowledgeDocument.embedding_model == model,
+            distance <= max_distance,
+        )
+        .order_by(distance)
+        .limit(limit)
+    )
+    return (await session.execute(query)).all()

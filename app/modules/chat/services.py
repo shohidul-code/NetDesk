@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError, NotFoundError
+from app.integrations.embeddings import Embedder
 from app.integrations.llm.prompts import PROMPT_VERSION, evidence_message, render_system_prompt
 from app.integrations.llm.types import ChatMessage as LLMMessage
 from app.integrations.llm.types import LLMClient, LLMResult
@@ -21,7 +22,8 @@ from app.modules.agent import registry
 from app.modules.auth.dependencies import Scope
 from app.modules.chat import repositories
 from app.modules.chat.models import ChatMessage, ChatSession
-from app.modules.chat.schemas import ChatReply, TokenUsage, ToolUse
+from app.modules.chat.schemas import ChatReply, Source, TokenUsage, ToolUse
+from app.modules.knowledge import retrieval
 from app.modules.users.models import User
 
 HISTORY_MESSAGES = 12
@@ -133,7 +135,13 @@ def _assistant_tool_message(result: LLMResult) -> LLMMessage:
 
 
 async def send_message(
-    session: AsyncSession, scope: Scope, user: User, chat_id: uuid.UUID, text: str, llm: LLMClient
+    session: AsyncSession,
+    scope: Scope,
+    user: User,
+    chat_id: uuid.UUID,
+    text: str,
+    llm: LLMClient,
+    embedder: Embedder,
 ) -> ChatReply:
     settings = get_settings()
     if not settings.chat_enabled:
@@ -143,12 +151,13 @@ async def send_message(
     left_before = await _check_limits(session, scope, now)
 
     history = await repositories.last_messages(session, scope, chat_id, HISTORY_MESSAGES)
+    found = await retrieval.retrieve(session, scope, embedder, text)
     system = render_system_prompt(
         operator_name=settings.operator_name, role=scope.role, today=now.astimezone(DHAKA).date()
     )
     messages: list[LLMMessage] = [
         {"role": "system", "content": system},
-        evidence_message(None),  # RAG plugs in here in Phase 5
+        evidence_message(retrieval.format_evidence(found.evidence)),  # NO_EVIDENCE if empty
         *({"role": m.role, "content": m.content} for m in history),
         {"role": "user", "content": text},
     ]
@@ -172,6 +181,8 @@ async def send_message(
             tools_used.append(ToolUse(name=call.name, ok=outcome.ok))
             messages.append({"role": "tool", "tool_call_id": call.id, "content": outcome.content})
 
+    # Only citations that point at evidence we actually sent count (grounding check).
+    sources = retrieval.cited_sources(reply, found.evidence)
     if not history:
         chat.title = text[:60]
     # Explicit times: the database now() is fixed for the whole transaction, so both
@@ -182,7 +193,7 @@ async def send_message(
         role="assistant",
         content=reply[:4000],
         tools_used=[t.model_dump() for t in tools_used],
-        sources=[],
+        sources=[s.__dict__ for s in sources],
         prompt_version=PROMPT_VERSION,
         model=model,
         input_tokens=input_tokens,
@@ -197,7 +208,8 @@ async def send_message(
         message_id=answer.id,
         content=answer.content,
         tools_used=tools_used,
-        sources=[],
+        sources=[Source(**s.__dict__) for s in sources],
+        no_information=not sources and not any(t.ok for t in tools_used),
         usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
         messages_left_today=left_before - 1,
     )

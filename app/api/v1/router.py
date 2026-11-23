@@ -16,6 +16,8 @@ from app.modules.billing.controllers import router as billing_router
 from app.modules.chat.controllers import router as chat_router
 from app.modules.complaints.controllers import router as complaints_router
 from app.modules.connections.controllers import router as connections_router
+from app.modules.knowledge.controllers import router as knowledge_router
+from app.modules.knowledge.retrieval import embeddings_status
 from app.modules.notices.controllers import router as notices_router
 from app.modules.packages.controllers import router as packages_router
 from app.modules.users.controllers import router as users_router
@@ -35,7 +37,13 @@ async def health(session: Annotated[AsyncSession, Depends(get_session)]) -> dict
         await session.execute(text("SELECT 1"))
     except (SQLAlchemyError, OSError) as exc:
         raise DatabaseUnavailableError("Database is unavailable.", details={"db": "down"}) from exc
-    return {"status": "ok", "version": __version__, "db": "ok"}
+    # Embeddings are reported, not required: chat still answers without articles.
+    return {
+        "status": "ok",
+        "version": __version__,
+        "db": "ok",
+        "embeddings": embeddings_status["status"],
+    }
 
 
 for module_router in (
@@ -48,5 +56,6 @@ for module_router in (
     complaints_router,
     notices_router,
     chat_router,
+    knowledge_router,
 ):
     api_router.include_router(module_router)

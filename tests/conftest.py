@@ -25,8 +25,10 @@ from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.core.db import get_engine, get_session  # noqa: E402
 from app.core.rate_limit import limiter  # noqa: E402
+from app.integrations.embeddings import FakeEmbedder, get_embedder  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.modules.auth.dependencies import get_current_user  # noqa: E402
+from app.modules.knowledge.retrieval import embeddings_status  # noqa: E402
 from app.modules.users.models import User  # noqa: E402
 from tests.factories import make_user  # noqa: E402
 
@@ -40,8 +42,10 @@ def _migrated_database() -> None:
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter() -> None:
-    """The limiter keeps counts in memory for the whole process; start every test at zero."""
+    """The limiter and the embeddings status live in memory for the whole process; start
+    every test from a clean state so test order never matters."""
     limiter.reset()
+    embeddings_status["status"] = "ok"
 
 
 @pytest.fixture
@@ -73,6 +77,8 @@ def app(db_session: AsyncSession, admin: User) -> FastAPI:
 
     application.dependency_overrides[get_session] = test_session
     application.dependency_overrides[get_current_user] = lambda: admin
+    # Offline by default; tests that need another embedder override it again.
+    application.dependency_overrides[get_embedder] = FakeEmbedder
     return application
 
 
