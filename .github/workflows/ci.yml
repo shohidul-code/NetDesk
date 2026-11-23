@@ -47,11 +47,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Create .env from the example
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          # CI-only demo password for the seed script; not used anywhere else.
+          sed -i 's/^SEED_DEMO_PASSWORD=.*/SEED_DEMO_PASSWORD=ci-demo-password-123/' .env
+          grep -q '^SEED_DEMO_PASSWORD=ci-demo-password-123$' .env
       # --wait blocks until every service is healthy; fail if that takes over 5 minutes.
       - name: Start the stack from a fresh clone
         run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Seed demo data
+        run: docker compose exec -T api python -m scripts.seed
       - name: Smoke test
+        env:
+          SMOKE_EMAIL: admin@netdesk.demo
+          SMOKE_PASSWORD: ci-demo-password-123
         run: scripts/smoke.sh http://localhost:8000
       - name: Show logs on failure
         if: failure()
