@@ -10,6 +10,10 @@ updates:
     directory: /frontend
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
+    ignore:
+      # openapi-typescript 7 and typescript-eslint 8 do not support TypeScript 6+ yet.
+      - dependency-name: typescript
+        versions: [">=6"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
