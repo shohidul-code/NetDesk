@@ -81,11 +81,11 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 3 — Authentication and authorization (2 d)
 
-- [ ] Argon2id (19456 KiB, time cost 2, parallelism 1); PyJWT HS256, 30-minute expiry, `sub` only.
-- [ ] Claim-style register; OAuth2-form login; `/auth/me`; admin user endpoints; replace the stub.
-- [ ] Rate-limit login and register on the forwarded IP.
-- [ ] Enforce `ALLOW_CUSTOMER_COMPLAINTS` in the complaints service. [refined]
-- [ ] `smoke.sh`: add a login step. [audit]
+- [x] Argon2id (19456 KiB, time cost 2, parallelism 1); PyJWT HS256, 30-minute expiry, `sub` only.
+- [x] Claim-style register; OAuth2-form login; `/auth/me`; admin user endpoints; replace the stub.
+- [x] Rate-limit login and register on the forwarded IP.
+- [x] Enforce `ALLOW_CUSTOMER_COMPLAINTS` in the complaints service. [refined]
+- [x] `smoke.sh`: add a login step. [audit]
 
 **Tests:** the auth row of §13.1; identical 401 bodies for unknown email and wrong password; dummy hash check; IDOR → 404; customer write → 403.
 **Done when (Gate 1):** every access test passes.
