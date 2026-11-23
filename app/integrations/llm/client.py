@@ -73,7 +73,13 @@ class OpenAICompatClient:
 
         message = response.choices[0].message
         tool_calls = [
-            ToolCall(id=call.id, name=call.function.name, arguments=call.function.arguments)
+            ToolCall(
+                id=call.id,
+                name=call.function.name,
+                arguments=call.function.arguments,
+                # Extra fields the provider adds (Gemini: thought_signature) must round-trip.
+                extra=call.model_dump().get("extra_content"),
+            )
             for call in message.tool_calls or []
             if call.type == "function"
         ]

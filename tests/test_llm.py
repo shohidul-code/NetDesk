@@ -122,6 +122,29 @@ async def test_complete_maps_tool_calls_with_raw_arguments() -> None:
     assert result.usage == Usage(0, 0)  # provider sent no usage
 
 
+async def test_complete_keeps_provider_extra_on_tool_calls() -> None:
+    """Gemini 3 sends a thought_signature in extra_content that must be echoed back."""
+    signature = {"google": {"thought_signature": "abc123"}}
+    message = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_sig",
+                "type": "function",
+                "function": {"name": "get_bills", "arguments": "{}"},
+                "extra_content": signature,
+            }
+        ],
+    }
+
+    result = await _client(lambda r: httpx2.Response(200, json=_completion(message))).complete(
+        MESSAGES, TOOLS
+    )
+
+    assert result.tool_calls[0].extra == signature
+
+
 @pytest.mark.parametrize("status", [500, 429, 400])
 async def test_http_errors_become_llm_unavailable(status: int) -> None:
     client = _client(

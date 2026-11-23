@@ -119,14 +119,17 @@ async def _check_limits(session: AsyncSession, scope: Scope, now: datetime) -> i
 
 def _assistant_tool_message(result: LLMResult) -> LLMMessage:
     """The model's tool request, echoed back so the model can match each tool result."""
-    return {
-        "role": "assistant",
-        "content": result.content,
-        "tool_calls": [
-            {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": c.arguments}}
-            for c in result.tool_calls
-        ],
-    }
+    calls: list[LLMMessage] = []
+    for c in result.tool_calls:
+        call: LLMMessage = {
+            "id": c.id,
+            "type": "function",
+            "function": {"name": c.name, "arguments": c.arguments},
+        }
+        if c.extra:
+            call["extra_content"] = c.extra  # e.g. Gemini's thought_signature, sent back as-is
+        calls.append(call)
+    return {"role": "assistant", "content": result.content, "tool_calls": calls}
 
 
 async def send_message(

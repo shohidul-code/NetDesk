@@ -1,6 +1,7 @@
 """Stored chat with the tool loop (PROPOSAL §6.7, §9.4, §9.8), run against FakeLLM."""
 
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -313,3 +314,19 @@ async def test_message_over_1000_characters_is_422(client: AsyncClient) -> None:
     response = await say(client, await new_chat(client), "x" * 1001)
 
     assert response.status_code == 422
+
+
+async def test_provider_extra_on_a_tool_call_is_echoed_back(
+    app: FastAPI, client: AsyncClient, as_user: AsUser
+) -> None:
+    """Gemini 3 rejects the follow-up call unless each tool call's thought_signature
+    (extra_content) is sent back unchanged."""
+    await as_user("customer")
+    signed = FakeLLM.tool("get_my_area_status", {})
+    call = replace(signed.tool_calls[0], extra={"google": {"thought_signature": "sig-1"}})
+    fake = use_llm(app, FakeLLM([replace(signed, tool_calls=[call]), FakeLLM.text("done")]))
+
+    await say(client, await new_chat(client), "is my net down?")
+
+    echoed = next(m for m in fake.calls[1][0] if m.get("tool_calls"))
+    assert echoed["tool_calls"][0]["extra_content"] == {"google": {"thought_signature": "sig-1"}}

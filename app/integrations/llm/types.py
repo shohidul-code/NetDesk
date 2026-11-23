@@ -12,6 +12,9 @@ class ToolCall:
     id: str
     name: str
     arguments: str  # raw JSON string from the model; the caller validates it with Pydantic
+    # Provider data that must be sent back unchanged with the tool result. Gemini 3 puts a
+    # thought_signature here and rejects the next call (400) without it.
+    extra: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
