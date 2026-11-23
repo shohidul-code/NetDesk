@@ -119,10 +119,11 @@ jobs:
           docker build -t netdesk-embedder embedder
           docker run -d --name embedder --memory 450m -p 8082:8000 netdesk-embedder
           for i in $(seq 1 60); do curl -fsS http://localhost:8082/health && break; sleep 1; done
-          curl -fsS -H 'Content-Type: application/json' -d '{"inputs": ["query: রাউটার কিভাবে রিস্টার্ট করব?"]}' \
-            http://localhost:8082/embed | python3 -c '
-          import json, math, sys
-          v = json.load(sys.stdin)[0]
+          curl -fsS -o /tmp/embed.json -H 'Content-Type: application/json' \
+            -d '{"inputs": ["query: রাউটার কিভাবে রিস্টার্ট করব?"]}' http://localhost:8082/embed
+          python3 -c '
+          import json, math
+          v = json.load(open("/tmp/embed.json"))[0]
           assert len(v) == 384, len(v)
           assert abs(math.sqrt(sum(x * x for x in v)) - 1) < 1e-3
           print("embedder ok: 384 dims, unit length")'
