@@ -30,13 +30,13 @@ def _n() -> int:
 async def make_user(session: AsyncSession, role: str = "admin", **kw: object) -> User:
     role_id = (await session.execute(select(Role.id).where(Role.name == role))).scalar_one()
     n = _n()
-    user = User(
-        email=f"{role}{n}@example.test",
-        full_name=f"Test {role.title()} {n}",
-        password_hash="not-a-real-hash",
-        role_id=role_id,
-        **kw,
-    )
+    fields = {
+        "email": f"{role}{n}@example.test",
+        "full_name": f"Test {role.title()} {n}",
+        "password_hash": "not-a-real-hash",
+        "role_id": role_id,
+    }
+    user = User(**{**fields, **kw})
     session.add(user)
     await session.flush()
     await session.refresh(user, ["role"])

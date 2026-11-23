@@ -39,6 +39,7 @@ class AppError(Exception):
 
     status_code = 400
     code = "bad_request"
+    headers: dict[str, str] | None = None
 
     def __init__(self, message: str, *, details: Any = None) -> None:
         super().__init__(message)
@@ -49,6 +50,8 @@ class AppError(Exception):
 class UnauthorizedError(AppError):
     status_code = 401
     code = "unauthorized"
+    # Tells the client to send a Bearer token (RFC 6750).
+    headers = {"WWW-Authenticate": "Bearer"}
 
 
 class ForbiddenError(AppError):
@@ -97,7 +100,7 @@ def error_response(
 
 async def _app_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)
-    return error_response(exc.status_code, exc.code, exc.message, exc.details)
+    return error_response(exc.status_code, exc.code, exc.message, exc.details, exc.headers)
 
 
 async def _http_error(request: Request, exc: Exception) -> JSONResponse:

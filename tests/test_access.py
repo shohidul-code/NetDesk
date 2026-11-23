@@ -1,27 +1,14 @@
-"""The stub current user, roles and Scope (Phase 2). Phase 3 replaces the stub with JWT."""
+"""Roles and Scope. Real login and tokens are tested in test_auth.py."""
 
 from typing import Annotated
 
-import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import UnauthorizedError
-from app.modules.auth.dependencies import Scope, get_current_user, get_scope, require_roles
+from app.modules.auth.dependencies import Scope, get_scope, require_roles
 from app.modules.users.models import User
 from tests.factories import make_user
-
-
-async def test_stub_returns_an_active_admin(db_session: AsyncSession, admin: User) -> None:
-    user = await get_current_user(db_session)
-
-    assert user.role.name == "admin"
-
-
-async def test_stub_without_admin_is_401(db_session: AsyncSession) -> None:
-    with pytest.raises(UnauthorizedError):
-        await get_current_user(db_session)
 
 
 async def test_scope_holds_id_and_role(db_session: AsyncSession) -> None:
