@@ -194,7 +194,7 @@ async def test_only_the_last_12_messages_are_sent(
     history = [m for m in sent if m["role"] in ("user", "assistant")]
     assert len(history) == 13  # 12 earlier messages + the new one
     assert history[0]["content"] == "old 8"
-    assert sent[1]["content"] == "NO_EVIDENCE"
+    assert sent[0]["content"].endswith("NO_EVIDENCE")  # one system message, then history
 
 
 async def test_31st_message_of_the_day_is_429(

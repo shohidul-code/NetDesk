@@ -106,13 +106,14 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 5 — RAG (3 d)
 
-- [ ] Write the 12–15 help articles yourself (bn + en); AI may help translate, check every line. [refined]
+- [x] 15 help articles (bn + en). Drafted by Claude at the owner's request; the owner reviews every line. [refined]
 - [x] Migration `0004_knowledge`; embedding adapters `tei`, `hf_inference`, `fake`, chosen by `EMBEDDINGS_PROVIDER`.
 - [x] Ingest script; retrieval service; evidence formatting; citation filter; NO_EVIDENCE; distance threshold from config, tuned.
 - [x] In-memory LRU cache for 512 query embeddings. [refined][audit]
 - [x] Embedding fallback: if the embedder is down, reply NO_EVIDENCE with reason `knowledge_unavailable` and report `embeddings: degraded` on health. [audit]
 - [ ] Decide the live embedding path now (option A: HF PRO, $9/month; option B: self-hosted), not on deploy day. [refined][audit]
-- [ ] Write the 20 eval cases yourself; run `scripts/eval_chat.py`. [refined]
+- [x] 20 eval cases (drafted by Claude, owner reviews); `scripts/eval_chat.py` run against real Gemini and TEI. [refined]
+- [ ] Language rule: 5 of 11 English questions got Bangla replies in the final run (see EVAL_RESULTS). Fix and re-run. [eval]
 - [x] Add a no-information flag to `ChatReply` (§8.2), set when retrieval returns NO_EVIDENCE and no tool answered, so the UI can style it (§11.2). [audit]
 
 **Tests:** the RAG row of §13.1; a cache hit skips the embedder; the fallback path.

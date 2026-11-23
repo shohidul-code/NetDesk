@@ -50,6 +50,15 @@ TARGET_NO_INFO = 0.9
 TARGET_TOOL = 0.9
 TARGET_P95_SECONDS = 8.0
 _BANGLA_DIGITS = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
+# An unanswerable reply must say so in words (prompt v2), not only set the flag: in the
+# first run the model set no_information yet answered from general knowledge (heuristic).
+NO_INFO_MARKERS = ("তথ্য নেই", "don't have", "don’t have", "do not have", "no information")
+
+
+HEURISTIC = {
+    "ambiguous": " (heuristic: asks a question)",
+    "unanswerable": " (heuristic: says it has no information)",
+}
 
 
 class CaseError(ValueError):
@@ -194,6 +203,8 @@ def score_case(result: CaseResult) -> Verdict:
     elif cat == "unanswerable":
         if not reply["no_information"] or reply["sources"]:
             return Verdict(False, "expected no_information true and no sources")
+        if not any(m in normalize(reply["content"]) for m in NO_INFO_MARKERS):
+            return Verdict(False, "reply does not say it has no information (heuristic)")
     elif cat == "ambiguous":
         if "?" not in reply["content"]:
             return Verdict(False, "reply did not ask a clarifying question (heuristic)")
@@ -355,10 +366,7 @@ def build_report(
         "",
         "| Category | Passed | Total |",
         "| --- | --- | --- |",
-        *(
-            f"| {c}{' (heuristic: asks a question)' if c == 'ambiguous' else ''} | {p} | {t} |"
-            for c, (p, t) in m.per_category.items()
-        ),
+        *(f"| {c}{HEURISTIC.get(c, '')} | {p} | {t} |" for c, (p, t) in m.per_category.items()),
         "",
         f"Release blockers: {', '.join(blockers) if blockers else 'NONE'}",
         "",
@@ -433,12 +441,16 @@ async def _chat_turn(
     raise AssertionError("unreachable")
 
 
-async def run_cases(cases: list[Case], base_url: str) -> tuple[list[CaseResult], bool]:
+async def run_cases(
+    cases: list[Case], base_url: str, pause: float = 0.0
+) -> tuple[list[CaseResult], bool]:
     """Returns the results and whether the run stopped early on the daily quota."""
     results: list[CaseResult] = []
     tokens: dict[str, str] = {}
     async with httpx.AsyncClient(base_url=base_url, timeout=90) as client:
         for n, case in enumerate(cases, 1):
+            if n > 1 and pause:
+                await asyncio.sleep(pause)  # stay under free-tier requests per minute
             top, status = await _top_slugs(case.as_email, case.question)
             token = await _login(client, tokens, case.as_email)
             try:
@@ -470,13 +482,14 @@ def main() -> int:
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--cases", type=Path, default=Path("eval/cases.yaml"))
     parser.add_argument("--out", type=Path, default=Path("docs/EVAL_RESULTS.md"))
+    parser.add_argument("--pause", type=float, default=0.0, help="seconds between cases")
     args = parser.parse_args()
     try:
         cases = load_cases(args.cases)
     except CaseError as exc:
         raise SystemExit(f"error: {exc}") from exc
 
-    results, stopped = asyncio.run(run_cases(cases, args.base_url.rstrip("/")))
+    results, stopped = asyncio.run(run_cases(cases, args.base_url.rstrip("/"), args.pause))
     settings = get_settings()
     report = build_report(
         results,

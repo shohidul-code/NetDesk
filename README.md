@@ -64,7 +64,9 @@ This project was built with AI assistance, as allowed by the course:
   tests first. I review every diff, run the checks, and must be able to explain every line.
 - **Frontend (Phase 7):** a coding agent builds `frontend/` only, following
   [docs/RULES.md](docs/RULES.md) and [docs/FRONTEND_AGENT_BRIEF.md](docs/FRONTEND_AGENT_BRIEF.md).
-- **Written by me:** the help articles and the evaluation cases (Phase 5).
+- **Help articles and evaluation cases (Phase 5):** drafted by Claude at my request from the
+  synthetic demo data, then reviewed by me line by line. The first eval run is kept in
+  [docs/EVAL_RESULTS_v1.md](docs/EVAL_RESULTS_v1.md).
 
 ## License
 

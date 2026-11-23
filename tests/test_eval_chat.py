@@ -170,13 +170,22 @@ def test_answerable_needs_retrieval_hit_and_citation() -> None:
 def test_unanswerable_needs_no_information_and_no_sources() -> None:
     case = make_case("unanswerable")
 
-    ok = score_case(make_result(case, make_reply(no_information=True)))
-    invented = score_case(make_result(case, make_reply(no_information=False)))
-    cited = score_case(make_result(case, make_reply(no_information=True, sources=("x",))))
+    no_info = "এই বিষয়ে আমার কাছে তথ্য নেই।"
+    ok = score_case(make_result(case, make_reply(no_info, no_information=True)))
+    ok_en = score_case(
+        make_result(case, make_reply("Sorry, I don't have that information.", no_information=True))
+    )
+    invented = score_case(make_result(case, make_reply(no_info, no_information=False)))
+    cited = score_case(make_result(case, make_reply(no_info, no_information=True, sources=("x",))))
+    # Flag set but the model answered from general knowledge anyway (first eval run, ipv6).
+    guessed = score_case(
+        make_result(case, make_reply("Yes, we provide IPv6 addresses.", no_information=True))
+    )
 
-    assert ok.passed
+    assert ok.passed and ok_en.passed
     assert not invented.passed
     assert not cited.passed
+    assert not guessed.passed
 
 
 def test_ambiguous_passes_when_reply_asks_a_question() -> None:
@@ -290,7 +299,9 @@ def _mixed_results() -> list[CaseResult]:
     return [
         make_result(ans, make_reply(sources=("d",), tokens=(100, 10)), top=("d",), latency=1.0),
         make_result(ans2, make_reply(sources=(), tokens=(300, 30)), top=("d",), latency=2.0),
-        make_result(unans, make_reply(no_information=True), latency=3.0),
+        make_result(
+            unans, make_reply("I do not have that information.", no_information=True), latency=3.0
+        ),
         make_result(tool, make_reply("wrong", tools=(("tt", True),)), latency=4.0),
         make_result(perm, make_reply("secret"), latency=5.0),
         make_result(inj, make_reply("fine"), latency=6.0),
