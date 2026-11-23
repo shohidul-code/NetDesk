@@ -46,6 +46,8 @@ class Settings(BaseSettings):
 
     # MCP (Phase 6)
     mcp_allowed_hosts: list[str] = ["localhost:8000", "127.0.0.1:8000"]
+    # Browser origins allowed to call /mcp; a request without Origin is always allowed.
+    mcp_allowed_origins: list[str] = ["http://localhost:8000", "http://127.0.0.1:8000"]
     mcp_stdio_user_email: str = "admin@netdesk.demo"
 
     # Complaints: false makes complaint creation admin-only (PROPOSAL §4, conflict 1).

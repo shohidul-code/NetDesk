@@ -14,9 +14,11 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel, Field
+from starlette.routing import Route
 
 from app.core.config import Settings
 from app.main import create_app
+from app.mcp.auth import StaffJWTMiddleware
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -112,6 +114,19 @@ def test_every_non_public_route_requires_auth() -> None:
     # Guard against a vacuous pass: the module routes must actually be inspected.
     assert "/api/v1/connections/{connection_id}" in {c.path for c in contexts}
     assert unprotected == []
+
+
+def test_only_docs_and_the_guarded_mcp_route_live_outside_fastapi_auth() -> None:
+    """Plain Starlette routes skip Depends(get_current_user), so each must be a Swagger
+    route or /mcp wrapped in the staff JWT middleware (PROPOSAL §9.7)."""
+    docs = {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
+    others = [
+        r for r in create_app().routes if isinstance(r, Route) and not isinstance(r, APIRoute)
+    ]
+    mcp = [r for r in others if r.path == "/mcp"]
+
+    assert {r.path for r in others} == docs | {"/mcp"}
+    assert isinstance(mcp[0].app, StaffJWTMiddleware)
 
 
 class _Signup(BaseModel):
