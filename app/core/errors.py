@@ -46,6 +46,32 @@ class AppError(Exception):
         self.details = details
 
 
+class UnauthorizedError(AppError):
+    status_code = 401
+    code = "unauthorized"
+
+
+class ForbiddenError(AppError):
+    """The role may never do this action (CLAUDE.md: role not allowed -> 403)."""
+
+    status_code = 403
+    code = "forbidden"
+
+
+class NotFoundError(AppError):
+    """Missing, or outside the caller's scope (CLAUDE.md: out of scope -> 404)."""
+
+    status_code = 404
+    code = "not_found"
+
+
+class ConflictError(AppError):
+    """A unique or state conflict: duplicate code, reused TrxID, bills exist..."""
+
+    status_code = 409
+    code = "conflict"
+
+
 def error_response(
     status_code: int,
     code: str,
