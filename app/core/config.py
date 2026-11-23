@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # LLM (Phase 4). Gemini through its OpenAI-compatible endpoint.
     operator_name: str = "NetDesk Demo ISP"  # the ISP named in the system prompt
     llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    llm_model: str = "gemini-2.5-flash-lite"
+    llm_model: str = "gemini-3.5-flash-lite"
     llm_api_key: SecretStr | None = None
 
     # Embeddings (Phase 5)
