@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcp.server.transport_security import TransportSecuritySettings
 from slowapi.errors import RateLimitExceeded
@@ -53,6 +54,15 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="NetDesk API", version=__version__, lifespan=lifespan)
     app.add_middleware(RequestIdMiddleware)
+    # Added last, so it is outermost and error responses carry CORS headers too. Bearer
+    # tokens, not cookies, so no credentials; never a wildcard (PROPOSAL §10).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["Retry-After", "X-Request-ID"],
+    )
     app.state.limiter = limiter
     register_exception_handlers(app)
     app.add_exception_handler(RateLimitExceeded, _rate_limited)
