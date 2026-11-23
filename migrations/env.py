@@ -6,6 +6,14 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Importing each models module registers its tables on Base.metadata for autogenerate.
+import app.modules.areas.models
+import app.modules.billing.models
+import app.modules.complaints.models
+import app.modules.connections.models
+import app.modules.notices.models
+import app.modules.packages.models
+import app.modules.users.models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base
 
@@ -25,8 +33,6 @@ config.set_main_option(
     "sqlalchemy.url", get_settings().database_url.get_secret_value().replace("%", "%%")
 )
 
-# Models register their tables on Base.metadata when imported.
-# Phase 2 adds: import app.modules.<feature>.models here, for autogenerate.
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
