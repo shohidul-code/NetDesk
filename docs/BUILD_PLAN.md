@@ -67,13 +67,13 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 2 — Database and domain API (3 d)
 
-- [ ] Models and migration `0001_core` (ids: `int` for roles, areas and packages; `uuid` everywhere else, §7.2).
-- [ ] Modules: areas, packages, connections, billing, complaints, notices; filters, search `q`, limit/offset with a total.
-- [ ] Idempotent monthly bill generation; `due_date` is the 10th of the month after `period` (§7.2).
-- [ ] Complaint status rule (§7.2): only the allowed changes, any other → 409. Decide whether a status update carries a note (§11.2 shows one; §8.1 has no field). [audit]
-- [ ] `scripts/seed.py`: idempotent, synthetic data only.
-- [ ] Migration `0002_payment_trail`; payment verification by TrxID (409 on reuse).
-- [ ] A **stub** `get_current_user` and `require_roles` on every route now, so Phase 3 swaps the stub instead of retrofitting checks.
+- [x] Models and migration `0001_core` (ids: `int` for roles, areas and packages; `uuid` everywhere else, §7.2).
+- [x] Modules: areas, packages, connections, billing, complaints, notices; filters, search `q`, limit/offset with a total.
+- [x] Idempotent monthly bill generation; `due_date` is the 10th of the month after `period` (§7.2).
+- [x] Complaint status rule (§7.2): only the allowed changes, any other → 409. Decide whether a status update carries a note (§11.2 shows one; §8.1 has no field). [audit]
+- [x] `scripts/seed.py`: idempotent, synthetic data only.
+- [x] Migration `0002_payment_trail`; payment verification by TrxID (409 on reuse).
+- [x] A **stub** `get_current_user` and `require_roles` on every route now, so Phase 3 swaps the stub instead of retrofitting checks.
 
 **Tests:** CRUD with filters; 404, 409 and 422 cases; generating a month twice; TrxID reuse; seeding twice; `alembic upgrade head` on an empty DB; `alembic check` shows no drift.
 **Done when:** every endpoint in §8.1, except auth, users, chat and knowledge, matches the contract.
