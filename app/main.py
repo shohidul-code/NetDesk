@@ -12,6 +12,7 @@ from starlette.routing import Route
 
 from app import __version__
 from app.api.v1.router import api_router
+from app.core.body_limit import BodySizeLimitMiddleware
 from app.core.config import get_settings
 from app.core.errors import error_response, register_exception_handlers
 from app.core.logging import RequestIdMiddleware, configure_logging
@@ -53,6 +54,8 @@ def create_app() -> FastAPI:
             yield
 
     app = FastAPI(title="NetDesk API", version=__version__, lifespan=lifespan)
+    # Innermost of the three, so a 413 still gets a request id and CORS headers.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
     # Added last, so it is outermost and error responses carry CORS headers too. Bearer
     # tokens, not cookies, so no credentials; never a wildcard (PROPOSAL §10).
