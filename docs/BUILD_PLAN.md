@@ -122,12 +122,13 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 6 — MCP (2 d)
 
-- [ ] Server with 2 tools, 1 resource and 1 prompt; mount at `/mcp` with the lifespan.
-- [ ] `transport_security` with allowed hosts read from `MCP_ALLOWED_HOSTS`. [refined]
-- [ ] Staff-only JWT middleware; `netdesk-mcp` stdio script (acts as `MCP_STDIO_USER_EMAIL`, logs to stderr only).
-- [ ] Client tests over both transports; a manual check in MCP Inspector.
-- [ ] One CI test starts real uvicorn and lists the MCP tools, so the lifespan is exercised. [refined][audit]
-- [ ] `smoke.sh`: an MCP tool-list call, and a wrong `Host` header that must get 421. [refined][audit]
+- [x] Server with 2 tools, 1 resource and 1 prompt; mount at `/mcp` with the lifespan.
+- [x] `transport_security` with allowed hosts read from `MCP_ALLOWED_HOSTS`. [refined]
+- [x] Staff-only JWT middleware; `netdesk-mcp` stdio script (acts as `MCP_STDIO_USER_EMAIL`, logs to stderr only).
+- [x] Client tests over both transports (SDK client: real uvicorn and the installed stdio script).
+- [ ] Manual check in MCP Inspector over both transports (owner, HUMAN_TODO §5b).
+- [x] One CI test starts real uvicorn and lists the MCP tools, so the lifespan is exercised. [refined][audit]
+- [x] `smoke.sh`: an MCP tool-list call, and a wrong `Host` header that must get 421. [refined][audit]
 
 **Done when:** the MCP acceptance criterion in §13.3 passes locally.
 **Risk:** SDK names differ between versions (`MCPServer` or `FastMCP`); pin the version and check it.

@@ -51,6 +51,11 @@ Format and examples: [knowledge-template.md](knowledge-template.md).
 
 Decision: ____ (A: `EMBEDDINGS_PROVIDER=hf_inference`; B: `EMBEDDINGS_URL` points at the int8 service. See PROPOSAL §12.3.)
 
+## 5b. Check MCP in MCP Inspector (Phase 6)
+
+- [ ] Over HTTP with an admin token: list 2 tools, call `lookup_customer_bills` for ND-000005, read `netdesk://packages/active`, render `due_bill_reminder`. Record a short clip for the video (PROPOSAL §13.3, B9).
+- [ ] Over stdio (`uv run netdesk-mcp`, see README): the same list. Optionally add it to Claude Desktop.
+
 ## 6. Record the video (Phase 10)
 
 Follow the storyboard in PROPOSAL §17: 5–10 minutes, your own voice, all five flows labelled.

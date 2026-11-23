@@ -41,6 +41,38 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run
 
 Schema changes go through Alembic only: `uv run alembic upgrade head`.
 
+## MCP (staff only)
+
+NetDesk exposes two read-only tools (`lookup_customer_bills`, `get_area_service_status`),
+one resource (`netdesk://packages/active`) and one prompt (`due_bill_reminder`) to AI
+clients. They call the same services as the REST API, so the access rules are the same.
+
+**Streamable HTTP** at `http://localhost:8000/mcp`, with a technician or admin token:
+
+```bash
+TOKEN=$(curl -s --data-urlencode username=admin@netdesk.demo \
+  --data-urlencode "password=$SEED_DEMO_PASSWORD" http://localhost:8000/api/v1/auth/login \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+```
+
+In MCP Inspector (`npx @modelcontextprotocol/inspector`), choose Streamable HTTP, enter the
+URL and add the header `Authorization: Bearer <token>`. No token gives 401, a customer
+token 403, and a Host not in `MCP_ALLOWED_HOSTS` gives 421.
+
+**stdio** for a local client such as Claude Desktop. It acts as `MCP_STDIO_USER_EMAIL`
+(an active staff user) and reads the database settings from `.env`:
+
+```json
+{
+  "mcpServers": {
+    "netdesk": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/NetDesk", "netdesk-mcp"]
+    }
+  }
+}
+```
+
 ## Architecture
 
 FastAPI modular monolith, async SQLAlchemy 2 + asyncpg, PostgreSQL 16 + pgvector, Alembic,

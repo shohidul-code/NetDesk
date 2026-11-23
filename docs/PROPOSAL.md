@@ -815,6 +815,7 @@ else:
 - **Resource:** `netdesk://packages/active`, a JSON list of active packages.
 - **Prompt:** `due_bill_reminder(customer_code, language="bn")`. It reads the current due amount and returns a polite reminder template. It sends nothing.
 - **HTTP at `/mcp`:** the FastAPI lifespan must enter `mcp.session_manager.run()`, because a mounted sub-app's lifespan never runs. The default host allowlist is localhost only; any other hostname gets **421** until you pass `transport_security` with your Render host in `allowed_hosts` and `allowed_origins` ([MCP SDK docs](https://py.sdk.modelcontextprotocol.io/run/asgi/)).
+- **As built (mcp 2.3.0):** `/mcp` is an exact route, not a mount, so unknown paths keep the 404 envelope. The HTTP app runs in stateless JSON mode: each request gets its own transport, so the tools run inside the request the JWT middleware checked. Origins come from `MCP_ALLOWED_ORIGINS`.
 - **Auth:** an ASGI middleware around the mount checks the Bearer JWT, loads the user, requires technician or admin (401/403), and puts the user in a context variable that tools read.
 - **stdio:** a `netdesk-mcp` script in `pyproject.toml`. At startup it resolves `MCP_STDIO_USER_EMAIL` to an active staff user, or exits. It logs to stderr only, because stdout carries the protocol.
 - **Client tests:** the SDK client lists tools, calls both, reads the resource and renders the prompt over HTTP (test server on a random port) and over stdio (subprocess against the test DB). A customer token must get 403.
@@ -991,6 +992,7 @@ docker compose exec api python -m scripts.ingest
 | `HF_TOKEN` | — | Yes |
 | `CHAT_ENABLED`, `CHAT_DAILY_LIMIT_*` | `true`, `30`, `100`, `1500` | No |
 | `MCP_ALLOWED_HOSTS` | `netdesk-api.onrender.com` | No |
+| `MCP_ALLOWED_ORIGINS` | `https://netdesk.onrender.com` (browser origins; none needed for CLI clients) | No |
 | `MCP_STDIO_USER_EMAIL` | `admin@netdesk.demo` | No |
 | `ALLOW_CUSTOMER_COMPLAINTS` | `true` | No |
 | `SEED_DEMO_PASSWORD` | — | Yes |
