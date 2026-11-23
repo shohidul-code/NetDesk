@@ -22,6 +22,22 @@ _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
+# Redaction (PROPOSAL §10.2 "Sensitive logs"). Order matters: query values first, so
+# "q=%2B8801..." is removed whole before the phone pattern runs.
+_SECRET_PARAMS = re.compile(r"(?i)\b(password|q|token|access_token)=[^&\s\"']*")
+_BEARER = re.compile(r"(?i)\b(bearer\s+)\S+")
+_JWT = re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]+")
+# Bangladeshi mobiles: 01[3-9] + 8 digits, optionally with 88 / +88 / %2B88 in front.
+_PHONE = re.compile(r"(?<![\w])(?:(?:\+|%2B)?88)?01[3-9]\d{8}(?!\d)")
+
+
+def redact(text: str) -> str:
+    """Remove passwords, tokens and search text, and mask phone numbers, in a log line."""
+    text = _SECRET_PARAMS.sub(r"\1=[redacted]", text)
+    text = _BEARER.sub(r"\1[token]", text)
+    text = _JWT.sub("[token]", text)
+    return _PHONE.sub("[phone]", text)
+
 
 class JsonFormatter(logging.Formatter):
     """One JSON object per line, easy to search in Render's log viewer."""
@@ -31,12 +47,12 @@ class JsonFormatter(logging.Formatter):
             "time": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": redact(record.getMessage()),
             "request_id": request_id_var.get(),
         }
         if record.exc_info:
             # Tracebacks go to the logs only, never to the client.
-            line["exception"] = self.formatException(record.exc_info)
+            line["exception"] = redact(self.formatException(record.exc_info))
         return json.dumps(line, ensure_ascii=False)
 
 
@@ -44,6 +60,12 @@ def configure_logging(level: int = logging.INFO) -> None:
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=level, handlers=[handler], force=True)
+    # uvicorn installs its own plain-text handlers; send its lines (the access log prints
+    # full URLs) through this JSON handler, so they are redacted too.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = []
+        uvicorn_logger.propagate = True
 
 
 class RequestIdMiddleware:
