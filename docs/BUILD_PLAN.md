@@ -135,9 +135,11 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 7 — Frontend (4 d, `frontend/` only)
 
-- [ ] Generate API types from `/openapi.json`.
-- [ ] The 9 P0 pages: login, claim, customer home, assistant, my complaints, technician queue, admin connections, bills, notices. [refined]
-- [ ] Role navigation; error mapping from the envelope; chat UI with tool and source chips.
+- [x] Generate API types from `/openapi.json`.
+- [x] The 9 P0 pages: login, claim, customer home, assistant, my complaints, technician queue, admin connections, bills, notices. [refined]
+- [x] Role navigation; error mapping from the envelope; chat UI with tool and source chips.
+- [x] CORS allowlist applied in the API (it was configured but never wired); frontend CI job. [phase 7]
+- [x] The brief's 11 acceptance checks pass in the browser at 360px against the local API (2026-11-24).
 - Packages, users, knowledge and the dashboard are P1; Swagger covers them meanwhile.
 
 **Done when:** each role completes its main workflow in the browser against the local API.

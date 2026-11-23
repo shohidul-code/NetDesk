@@ -94,8 +94,11 @@ This project was built with AI assistance, as allowed by the course:
   assistant and reviewed and edited by me.
 - **Backend:** the backend code is written in Claude Code sessions, one small task at a time, with
   tests first. I review every diff, run the checks, and must be able to explain every line.
-- **Frontend (Phase 7):** a coding agent builds `frontend/` only, following
-  [docs/RULES.md](docs/RULES.md) and [docs/FRONTEND_AGENT_BRIEF.md](docs/FRONTEND_AGENT_BRIEF.md).
+- **Frontend (Phase 7):** the scaffold and foundation (API client, auth, layouts) were
+  written in Claude Code; the pages were built by two Claude subagents working only in
+  `frontend/`, following [docs/RULES.md](docs/RULES.md) and
+  [docs/FRONTEND_AGENT_BRIEF.md](docs/FRONTEND_AGENT_BRIEF.md). Every page was reviewed and
+  checked in the browser against the real API before it was committed.
 - **Help articles and evaluation cases (Phase 5):** drafted by Claude at my request from the
   synthetic demo data, then reviewed by me line by line. The first eval run is kept in
   [docs/EVAL_RESULTS_v1.md](docs/EVAL_RESULTS_v1.md).
