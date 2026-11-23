@@ -2,8 +2,8 @@
 # Smoke test a running NetDesk API (PROPOSAL §13.1). Exits non-zero on the first failure.
 #   SMOKE_EMAIL=... SMOKE_PASSWORD=... scripts/smoke.sh http://localhost:8000
 #   SMOKE_EMAIL=... SMOKE_PASSWORD=... scripts/smoke.sh https://netdesk-api.onrender.com
-# SMOKE_EMAIL / SMOKE_PASSWORD: a seeded demo account (never printed). Login is covered;
-# later phases add one chat turn (4) and the MCP tool list and host check (6, 9).
+# SMOKE_EMAIL / SMOKE_PASSWORD: a seeded demo account (never printed). SMOKE_CHAT=1 adds a
+# real-model chat turn. Later phases add the MCP tool list and host check (6, 9).
 set -euo pipefail
 
 BASE_URL="${1:?usage: scripts/smoke.sh <base-url>}"
@@ -49,5 +49,26 @@ code="$(curl -sS -o "$BODY" -w '%{http_code}' --max-time 90 \
 [ "$code" = "200" ] || fail "/api/v1/auth/me returned $code, expected 200"
 grep -qF "$SMOKE_EMAIL" "$BODY" || fail "/api/v1/auth/me did not return the login email"
 echo "ok: /api/v1/auth/me -> 200"
+
+# 4. One chat turn with the real model. Opt-in (SMOKE_CHAT=1): it needs an LLM key, which
+#    CI does not have, and it uses one message of the account's daily quota.
+if [ "${SMOKE_CHAT:-0}" = "1" ]; then
+  code="$(curl -sS -o "$BODY" -w '%{http_code}' --max-time 90 -X POST \
+    -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/v1/chat/sessions")" \
+    || fail "create chat: no response from $BASE_URL"
+  [ "$code" = "201" ] || fail "create chat returned $code, expected 201"
+  CHAT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' <"$BODY")"
+  code="$(curl -sS -o "$BODY" -w '%{http_code}' --max-time 90 \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"content": "Hello, what can you help me with?"}' \
+    "$BASE_URL/api/v1/chat/sessions/$CHAT_ID/messages")" \
+    || fail "chat turn: no response from $BASE_URL"
+  [ "$code" = "201" ] || fail "chat turn returned $code, expected 201: $(head -c 300 "$BODY")"
+  python3 -c 'import json,sys; assert json.load(sys.stdin)["content"].strip()' <"$BODY" \
+    || fail "chat turn returned an empty reply"
+  echo "ok: chat turn -> 201"
+else
+  echo "skip: chat turn (set SMOKE_CHAT=1 to test the real model)"
+fi
 
 echo "SMOKE PASSED: $BASE_URL"
