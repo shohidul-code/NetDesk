@@ -126,7 +126,7 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 - [x] `transport_security` with allowed hosts read from `MCP_ALLOWED_HOSTS`. [refined]
 - [x] Staff-only JWT middleware; `netdesk-mcp` stdio script (acts as `MCP_STDIO_USER_EMAIL`, logs to stderr only).
 - [x] Client tests over both transports (SDK client: real uvicorn and the installed stdio script).
-- [ ] Manual check in MCP Inspector over both transports (owner, HUMAN_TODO §5b).
+- [x] Manual check in MCP Inspector over both transports (owner, HUMAN_TODO §5b).
 - [x] One CI test starts real uvicorn and lists the MCP tools, so the lifespan is exercised. [refined][audit]
 - [x] `smoke.sh`: an MCP tool-list call, and a wrong `Host` header that must get 421. [refined][audit]
 
