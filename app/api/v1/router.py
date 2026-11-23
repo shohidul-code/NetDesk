@@ -13,6 +13,7 @@ from app.core.errors import AppError
 from app.modules.areas.controllers import router as areas_router
 from app.modules.auth.controllers import router as auth_router
 from app.modules.billing.controllers import router as billing_router
+from app.modules.chat.controllers import router as chat_router
 from app.modules.complaints.controllers import router as complaints_router
 from app.modules.connections.controllers import router as connections_router
 from app.modules.notices.controllers import router as notices_router
@@ -46,5 +47,6 @@ for module_router in (
     billing_router,
     complaints_router,
     notices_router,
+    chat_router,
 ):
     api_router.include_router(module_router)

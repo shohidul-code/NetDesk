@@ -48,13 +48,17 @@ def _routes() -> list[tuple[str, str, str]]:
 
 
 ROUTES = _routes()
-# Customers may create complaints; login/register are public.
+# Every role chats in its OWN sessions; ownership (another user's session -> 404) is
+# tested in tests/test_chat.py, so chat writes are not admin-only.
+OWN_CHAT_PREFIX = f"{API}/chat/sessions"
+# Customers may create complaints and use chat; login/register are public.
 CUSTOMER_WRITES = [
     r
     for r in ROUTES
     if r[0] in WRITE_METHODS
     and r[1] not in PUBLIC_PATHS
     and (r[0], r[1]) != ("POST", f"{API}/complaints")
+    and not r[1].startswith(OWN_CHAT_PREFIX)
 ]
 TECHNICIAN_WRITES = [
     r for r in CUSTOMER_WRITES if (r[0], r[1]) != ("PATCH", f"{API}/complaints/{{complaint_id}}")
