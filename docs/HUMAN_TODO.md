@@ -37,6 +37,13 @@ Do 3–5 interviews; at least 3 before the video (PROPOSAL §3 "Customer-discove
 
 Only these notes and sourced facts may go into the README and video; everything else is labelled a hypothesis.
 
+## 4b. Write the help articles and eval cases (Phase 5, before Gate 2)
+
+- [ ] 12–15 help articles in `knowledge/` (Bangla and English, incl. one archived and two staff-only).
+- [ ] 20 eval cases in `eval/cases.yaml`.
+
+Format and examples: [knowledge-template.md](knowledge-template.md).
+
 ## 5. Choose the live embedding path (Phase 5, not deploy day)
 
 - [ ] **Option A:** Hugging Face PRO, $9/month, needs an international card. Live queries go to HF Inference with the same model.
