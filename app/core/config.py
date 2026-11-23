@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     embeddings_provider: Literal["tei", "hf_inference", "fake"] = "tei"
     embeddings_url: str = "http://embeddings:80"
     hf_token: SecretStr | None = None
+    # Cosine distance limit for evidence (1 - similarity). Tuned on the eval set (PROPOSAL §9.6).
+    rag_max_distance: float = 0.20
 
     # Chat limits and kill switch (Phase 4)
     chat_enabled: bool = True

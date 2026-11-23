@@ -12,6 +12,7 @@ import app.modules.billing.models
 import app.modules.chat.models
 import app.modules.complaints.models
 import app.modules.connections.models
+import app.modules.knowledge.models
 import app.modules.notices.models
 import app.modules.packages.models
 import app.modules.users.models  # noqa: F401
