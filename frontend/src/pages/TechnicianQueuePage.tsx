@@ -1,3 +1,4 @@
+import { categoryLabel } from "@/features/my-complaints/labels";
 import { useState } from "react";
 import { PageHeader } from "@/components/states";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -35,7 +36,7 @@ export function TechnicianQueuePage() {
     { header: "Customer", primary: true, cell: (c) => <span className="tabular">{customer(c)?.customer_code ?? "—"}</span> },
     { header: "Status", primary: true, cell: (c) => <StatusBadge status={c.status} /> },
     { header: "Area", cell: areaOf },
-    { header: "Category", cell: (c) => c.category },
+    { header: "Category", cell: (c) => categoryLabel(c.category) },
     { header: "Hours open", numeric: true, cell: (c) => hoursOpen(c.created_at, c.status, c.updated_at, now) },
     {
       header: "Actions",

@@ -11,7 +11,9 @@ test("money: taka sign, grouping, no .00, keeps paisa", () => {
 
 test("month and date in UI.md style", () => {
   assert.equal(formatMonth("2026-10"), "Oct 2026");
+  assert.equal(formatMonth("2026-09"), "Sep 2026"); // not the newer CLDR "Sept"
   assert.equal(formatDate("2026-12-10"), "10 Dec 2026"); // a date-only value never shifts a day
+  assert.equal(formatDate("2026-09-05"), "5 Sep 2026");
 });
 
 test("date-time is shown in Asia/Dhaka (UTC+6)", () => {

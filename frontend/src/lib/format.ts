@@ -10,6 +10,9 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
   timeZone: "UTC",
 });
+// Newer CLDR data writes September as "Sept"; UI.md uses three letters for every month.
+const threeLetters = (text: string) => text.replace("Sept", "Sep");
+
 const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
@@ -28,15 +31,15 @@ export function formatMoney(amount: string | number): string {
 
 /** "2026-10" -> "Oct 2026". */
 export function formatMonth(period: string): string {
-  return monthFmt.format(new Date(`${period}-01T00:00:00Z`));
+  return threeLetters(monthFmt.format(new Date(`${period}-01T00:00:00Z`)));
 }
 
 /** "2026-12-10" -> "10 Dec 2026". Read and printed in UTC, so the day never shifts. */
 export function formatDate(isoDate: string): string {
-  return dateFmt.format(new Date(`${isoDate.slice(0, 10)}T00:00:00Z`));
+  return threeLetters(dateFmt.format(new Date(`${isoDate.slice(0, 10)}T00:00:00Z`)));
 }
 
 /** An instant, shown in Dhaka time: "24 Nov 2026, 2:30 am". */
 export function formatDateTime(iso: string): string {
-  return dateTimeFmt.format(new Date(iso)).replace(" at ", ", ");
+  return threeLetters(dateTimeFmt.format(new Date(iso)).replace(" at ", ", "));
 }

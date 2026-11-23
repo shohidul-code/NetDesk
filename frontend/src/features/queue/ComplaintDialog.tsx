@@ -1,3 +1,4 @@
+import { categoryLabel } from "@/features/my-complaints/labels";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -46,7 +47,7 @@ function Body({ complaint, heading, onClose }: Props & { complaint: Complaint })
       <DialogHeader>
         <DialogTitle>{heading}</DialogTitle>
         <DialogDescription>
-          {complaint.category} · reported {formatDateTime(complaint.created_at)}
+          {categoryLabel(complaint.category)} · reported {formatDateTime(complaint.created_at)}
         </DialogDescription>
       </DialogHeader>
       <p className="whitespace-pre-wrap rounded-md bg-bg p-3 text-sm">{complaint.description}</p>
