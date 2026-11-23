@@ -15,7 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import AppError, NotFoundError
 from app.integrations.embeddings import Embedder
-from app.integrations.llm.prompts import PROMPT_VERSION, evidence_block, render_system_prompt
+from app.integrations.llm.prompts import (
+    PROMPT_VERSION,
+    evidence_block,
+    language_hint,
+    render_system_prompt,
+)
 from app.integrations.llm.types import ChatMessage as LLMMessage
 from app.integrations.llm.types import LLMClient, LLMResult
 from app.modules.agent import registry
@@ -156,10 +161,16 @@ async def send_message(
         operator_name=settings.operator_name, role=scope.role, today=now.astimezone(DHAKA).date()
     )
     messages: list[LLMMessage] = [
-        # One system message: prompt, then evidence (NO_EVIDENCE if empty).
+        # One system message: prompt, evidence (NO_EVIDENCE if empty), reply language.
         {
             "role": "system",
-            "content": system + "\n\n" + evidence_block(retrieval.format_evidence(found.evidence)),
+            "content": "\n\n".join(
+                [
+                    system,
+                    evidence_block(retrieval.format_evidence(found.evidence)),
+                    language_hint(text),
+                ]
+            ),
         },
         *({"role": m.role, "content": m.content} for m in history),
         {"role": "user", "content": text},

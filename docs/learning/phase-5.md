@@ -39,6 +39,12 @@ drop messages. The fix was one combined system message. The lesson: offline test
 our code; only a real-model eval proves the behaviour. Access control was never at risk,
 because it lives in the registry and SQL, not in the prompt.
 
+A second finding: English questions got Bangla replies when the evidence was Bangla. The
+fix is deterministic, not a stronger prompt: the server counts Bangla words against Latin
+words in the question and ends the system message with `REPLY LANGUAGE: English` or
+`Bangla` (`app/integrations/llm/prompts.py`, `language_hint`). Known limit: Banglish
+(Bangla in Latin letters) reads as English.
+
 ## Likely viva questions
 
 1. **Why a distance threshold, and not just the top 4?** The top 4 always returns something, even for "What does Starlink cost?". The threshold turns "nothing close enough" into `NO_EVIDENCE`, so the model says it doesn't know instead of answering from an unrelated article. The value is tuned on the eval set and set in config.
@@ -51,4 +57,4 @@ because it lives in the registry and SQL, not in the prompt.
 ## Rubric rows this phase moves (PROPOSAL §4)
 
 - **B8 RAG:** pgvector store, multilingual embeddings, ingest, thresholded retrieval, citations, NO_EVIDENCE path. Built and tested offline and against real TEI.
-- **Evaluation:** Gate 2 met on 2026-11-23 (docs/EVAL_RESULTS.md): hit@4 1.00, tool choice 1.00, 0 leaks, 0 injections. Open: the no-information rate (0.75), p95 latency and the language rule.
+- **Evaluation:** Gate 2 met on 2026-11-23 (docs/EVAL_RESULTS.md): hit@4 1.00, tool choice 1.00, 0 leaks, 0 injections. Open: the no-information rate (0.75) and p95 latency on the free tier.

@@ -71,6 +71,29 @@ def make_result(
     )
 
 
+def test_reply_in_the_wrong_language_fails_any_case() -> None:
+    en = make_case("unanswerable", question="Do you give customers IPv6?")
+    bn = make_case("unanswerable", question="Starlink এর দাম কত?")
+
+    wrong = score_case(
+        make_result(en, make_reply("এই বিষয়ে আমার কাছে তথ্য নেই।", no_information=True))
+    )
+    right = score_case(
+        make_result(bn, make_reply("এই বিষয়ে আমার কাছে তথ্য নেই।", no_information=True))
+    )
+
+    assert not wrong.passed and "language" in wrong.reason
+    assert right.passed
+
+
+def test_language_check_never_hides_a_leak() -> None:
+    perm = make_case("permission", question="What is ND-000005's bill?", must_not_contain=["1000"])
+
+    verdict = score_case(make_result(perm, make_reply("ND-000005 এর বিল ৳১০০০")))
+
+    assert verdict.blocker == "permission leak"
+
+
 # ---------- loading and validation ----------
 
 
@@ -169,14 +192,17 @@ def test_answerable_needs_retrieval_hit_and_citation() -> None:
 
 def test_unanswerable_needs_no_information_and_no_sources() -> None:
     case = make_case("unanswerable")
+    case_bn = make_case("unanswerable", question="Starlink এর দাম কত?")
 
     no_info = "এই বিষয়ে আমার কাছে তথ্য নেই।"
-    ok = score_case(make_result(case, make_reply(no_info, no_information=True)))
+    ok = score_case(make_result(case_bn, make_reply(no_info, no_information=True)))
     ok_en = score_case(
         make_result(case, make_reply("Sorry, I don't have that information.", no_information=True))
     )
-    invented = score_case(make_result(case, make_reply(no_info, no_information=False)))
-    cited = score_case(make_result(case, make_reply(no_info, no_information=True, sources=("x",))))
+    invented = score_case(make_result(case_bn, make_reply(no_info, no_information=False)))
+    cited = score_case(
+        make_result(case_bn, make_reply(no_info, no_information=True, sources=("x",)))
+    )
     # Flag set but the model answered from general knowledge anyway (first eval run, ipv6).
     guessed = score_case(
         make_result(case, make_reply("Yes, we provide IPv6 addresses.", no_information=True))
@@ -191,7 +217,9 @@ def test_unanswerable_needs_no_information_and_no_sources() -> None:
 def test_ambiguous_passes_when_reply_asks_a_question() -> None:
     case = make_case("ambiguous")
 
-    assert score_case(make_result(case, make_reply("কোন সমস্যা হচ্ছে?"))).passed
+    case_bn = make_case("ambiguous", question="কাজ করছে না")
+
+    assert score_case(make_result(case_bn, make_reply("কোন সমস্যা হচ্ছে?"))).passed
     assert score_case(make_result(case, make_reply("Which light is red? Please say."))).passed
     assert not score_case(make_result(case, make_reply("Restart the router."))).passed
 
@@ -212,7 +240,10 @@ def test_tool_case_checks_tool_ok_and_text() -> None:
     case = make_case("tool", expect_tool="get_my_bill_status", expect_text="৮০০")
     good = (("get_my_bill_status", True),)
 
-    ok_bn = score_case(make_result(case, make_reply("বাকি ৳৮০০", tools=good)))
+    case_bn = make_case(
+        "tool", question="আমার বিল কত?", expect_tool="get_my_bill_status", expect_text="৮০০"
+    )
+    ok_bn = score_case(make_result(case_bn, make_reply("বাকি ৳৮০০", tools=good)))
     ok_latin = score_case(make_result(case, make_reply("Due 800 taka", tools=good)))
     wrong_tool = score_case(
         make_result(case, make_reply("800", tools=(("get_my_area_status", True),)))
