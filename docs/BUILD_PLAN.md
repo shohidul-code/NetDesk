@@ -150,7 +150,7 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 - [x] pip-audit, npm audit and gitleaks in CI; Dependabot; coverage report (98%, floor 95%).
 - [x] Measure p50/p95 for chat and list endpoints (`docs/PERFORMANCE.md`).
 - [x] P1: messages left today shown on page load (`GET /chat/usage`).
-- [ ] Remaining eval failures: 3 cases are expectation questions (see EVAL_RESULTS); owner decides.
+- [x] Remaining eval failures: the owner kept the 3 cases unchanged (2026-11-24); they stay as known failures in EVAL_RESULTS.
 
 **Done when:** CI is green with the security tests, and the measured numbers are written down.
 

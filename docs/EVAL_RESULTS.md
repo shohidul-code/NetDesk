@@ -93,3 +93,7 @@ evidence, without the language line): every claim in its 20 replies traced to a 
 result or a cited chunk. One note: a customer asking for ND-000005's bill got their own
 bill instead of a refusal (no leak, but confusing). The language problem that review found
 is fixed (item 6 above). This run's replies have not been re-read line by line.
+
+**Decision (2026-11-24):** the owner kept the three remaining failing cases unchanged. The
+ambiguous cases still expect a clarifying question (PROPOSAL §9.9), and the IPTV case
+still expects no tool call, so the scorer was not changed after seeing the results.
