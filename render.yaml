@@ -1,0 +1,89 @@
+# Render Blueprint (PROPOSAL §12.2): the API, the int8 embedder and the web app, all on the
+# free plan in Singapore. The database is Neon (not Render Postgres: free Render databases
+# expire after 30 days). Secrets marked `sync: false` are typed into the Render dashboard
+# once and never live in this file.
+#
+# Service names become <name>.onrender.com. If Render had to add a suffix because a name was
+# taken, update the URLs below (CORS_ORIGINS, MCP_ALLOWED_HOSTS, EMBEDDINGS_URL,
+# VITE_API_BASE_URL) to the real hostnames.
+
+services:
+  - type: web
+    name: netdesk-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass # deploy only after CI is green
+    buildFilter:
+      ignoredPaths: ["frontend/**", "embedder/**", "docs/**", "knowledge/**", "eval/**"]
+    envVars:
+      - key: DATABASE_URL # Neon's connection string, pasted as is (sslmode is translated)
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: LLM_API_KEY # the Gemini key
+        sync: false
+      - key: LLM_MODEL
+        value: gemini-3.5-flash-lite
+      - key: EMBEDDINGS_PROVIDER
+        value: tei
+      - key: EMBEDDINGS_URL
+        value: https://netdesk-embedder.onrender.com
+      - key: EMBEDDINGS_MODEL_LABEL # int8 vectors are stored and searched under their own label
+        value: intfloat/multilingual-e5-small-qint8
+      - key: EMBEDDINGS_API_KEY
+        fromService:
+          type: web
+          name: netdesk-embedder
+          envVarKey: EMBEDDER_API_KEY
+      - key: CORS_ORIGINS
+        value: '["https://netdesk-web.onrender.com"]'
+      - key: MCP_ALLOWED_HOSTS
+        value: '["netdesk-api.onrender.com"]'
+      - key: MCP_ALLOWED_ORIGINS
+        value: "[]"
+
+  - type: web
+    name: netdesk-embedder
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./embedder/Dockerfile
+    dockerContext: ./embedder
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths: ["embedder/**"]
+    envVars:
+      - key: EMBEDDER_API_KEY # required on /embed; the API reads it through fromService
+        generateValue: true
+
+  - type: web
+    name: netdesk-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths: ["frontend/**"]
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://netdesk-api.onrender.com
+    routes:
+      - type: rewrite # a single-page app: every path serves index.html
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
