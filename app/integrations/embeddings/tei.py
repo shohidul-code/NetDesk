@@ -20,7 +20,9 @@ class TEIEmbedder:
         http_client: httpx.AsyncClient | None = None,
         timeout: float = 10.0,
         batch_size: int = 32,
+        model_name: str = MODEL_NAME,
     ) -> None:
+        self.model_name = model_name
         self._url = base_url.rstrip("/") + "/embed"
         self._client = http_client or httpx.AsyncClient()
         self._timeout = timeout

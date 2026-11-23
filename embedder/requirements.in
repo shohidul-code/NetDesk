@@ -1,0 +1,6 @@
+# The int8 embedder only (PROPOSAL §12.3 option B). Locked with hashes in requirements.txt.
+onnxruntime
+sentencepiece
+numpy
+starlette
+uvicorn

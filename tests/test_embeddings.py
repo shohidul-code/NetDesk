@@ -255,6 +255,18 @@ def test_build_embedder_picks_each_provider() -> None:
     assert isinstance(fake._inner, FakeEmbedder) and fake.model_name == "fake-e5-384"  # type: ignore[attr-defined]
 
 
+def test_int8_embedder_vectors_get_their_own_model_label() -> None:
+    """The production int8 build gives slightly different vectors (cosine ~0.997), so they
+    are stored under another label and retrieval never compares them with TEI's fp32 ones."""
+    settings = Settings(  # type: ignore[call-arg]
+        embeddings_provider="tei",
+        embeddings_url="http://embedder:8000",
+        embeddings_model_label="intfloat/multilingual-e5-small-qint8",
+    )
+
+    assert build_embedder(settings).model_name == "intfloat/multilingual-e5-small-qint8"
+
+
 # ---------- Real TEI (skipped when it is not running) ----------
 
 REAL_TEI = "http://127.0.0.1:8080"

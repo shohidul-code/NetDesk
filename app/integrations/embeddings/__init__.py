@@ -34,7 +34,7 @@ class _MissingTokenEmbedder:
 def build_embedder(settings: Settings) -> Embedder:
     inner: Embedder
     if settings.embeddings_provider == "tei":
-        inner = TEIEmbedder(settings.embeddings_url)
+        inner = TEIEmbedder(settings.embeddings_url, model_name=settings.embeddings_model_label)
     elif settings.embeddings_provider == "hf_inference":
         token = settings.hf_token
         inner = HFInferenceEmbedder(token.get_secret_value()) if token else _MissingTokenEmbedder()

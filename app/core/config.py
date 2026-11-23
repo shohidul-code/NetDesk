@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Embeddings (Phase 5)
     embeddings_provider: Literal["tei", "hf_inference", "fake"] = "tei"
     embeddings_url: str = "http://embeddings:80"
+    # Stored with every vector; retrieval only compares vectors with the same label. Set it to
+    # intfloat/multilingual-e5-small-qint8 when EMBEDDINGS_URL points at the int8 embedder.
+    embeddings_model_label: str = "intfloat/multilingual-e5-small"
     hf_token: SecretStr | None = None
     # Cosine distance limit for evidence (1 - similarity). Tuned on the eval set (PROPOSAL §9.6).
     rag_max_distance: float = 0.16  # tuned on the eval set (docs/EVAL_RESULTS.md)
