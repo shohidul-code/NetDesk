@@ -149,9 +149,11 @@ async def test_422_body_never_echoes_input() -> None:
 async def test_500_body_has_no_traceback() -> None:
     transport = ASGITransport(app=_app_with_test_routes(), raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/test/crash")
+        response = await client.get("/test/crash", headers={"X-Request-ID": "crash-1"})
 
     assert response.status_code == 500
+    # The 500 is sent outside the request-ID middleware, so the handler adds the header itself.
+    assert response.headers["X-Request-ID"] == "crash-1"
     assert "Traceback" not in response.text
     assert "secret internal detail" not in response.text
     error = response.json()["error"]

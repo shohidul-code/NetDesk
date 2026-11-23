@@ -12,7 +12,6 @@ from app.core.logging import RequestIdMiddleware, configure_logging
 def create_app() -> FastAPI:
     # Fail fast: raises ValidationError here if DATABASE_URL or JWT_SECRET_KEY is missing.
     get_settings()
-    configure_logging()
 
     app = FastAPI(title="NetDesk API", version=__version__)
     app.add_middleware(RequestIdMiddleware)
@@ -21,4 +20,7 @@ def create_app() -> FastAPI:
     return app
 
 
+# Logging is set up once per process, not per create_app(): it replaces the root
+# handlers, which would also remove handlers that tests install.
+configure_logging()
 app = create_app()

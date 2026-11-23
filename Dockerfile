@@ -22,4 +22,7 @@ ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 USER netdesk
 EXPOSE 8000
 # Migrate, then serve. Render sets PORT; locally it defaults to 8000.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers"]
+# --forwarded-allow-ips '*': trust X-Forwarded-For from Render's proxy (not 127.0.0.1),
+# so per-IP rate limits see the real client. Safe only because the container is
+# reachable through that proxy alone.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips '*'"]

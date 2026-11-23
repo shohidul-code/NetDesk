@@ -8,6 +8,7 @@ a 500 never shows a traceback.
 """
 
 import logging
+from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any
 
@@ -16,7 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.logging import request_id_var
+from app.core.logging import REQUEST_ID_HEADER, request_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +46,27 @@ class AppError(Exception):
         self.details = details
 
 
-def error_response(status_code: int, code: str, message: str, details: Any = None) -> JSONResponse:
+def error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    details: Any = None,
+    headers: Mapping[str, str] | None = None,
+) -> JSONResponse:
+    request_id = request_id_var.get()
     body = {
         "error": {
             "code": code,
             "message": message,
             "details": details,
-            "request_id": request_id_var.get(),
+            "request_id": request_id,
         }
     }
-    return JSONResponse(status_code=status_code, content=body)
+    headers = dict(headers or {})
+    if request_id:
+        # A 500 is sent outside RequestIdMiddleware, so set the header here too.
+        headers[REQUEST_ID_HEADER] = request_id
+    return JSONResponse(status_code=status_code, content=body, headers=headers)
 
 
 async def _app_error(request: Request, exc: Exception) -> JSONResponse:
@@ -66,7 +78,8 @@ async def _http_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
     code = _CODES.get(exc.status_code, "http_error")
     message = exc.detail if isinstance(exc.detail, str) else HTTPStatus(exc.status_code).phrase
-    return error_response(exc.status_code, code, message)
+    # Keep headers such as Allow (405), WWW-Authenticate (401) and Retry-After (429).
+    return error_response(exc.status_code, code, message, headers=exc.headers)
 
 
 async def _validation_error(request: Request, exc: Exception) -> JSONResponse:
