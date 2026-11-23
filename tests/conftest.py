@@ -23,7 +23,7 @@ from fastapi import FastAPI  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
-from app.core.db import get_engine, get_session  # noqa: E402
+from app.core.db import get_engine, get_session, get_sessionmaker  # noqa: E402
 from app.core.rate_limit import limiter  # noqa: E402
 from app.integrations.embeddings import FakeEmbedder, get_embedder  # noqa: E402
 from app.main import create_app  # noqa: E402
@@ -99,3 +99,24 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
     """An HTTP client that calls the app in memory, without a real server."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+@pytest.fixture
+async def committed_user() -> AsyncIterator[Callable[[str], Awaitable[User]]]:
+    """Users a subprocess can see (uvicorn, the stdio server): they have their own DB
+    connections, so a rolled-back test transaction is invisible to them. Committed here
+    and deleted afterwards."""
+    created: list[User] = []
+
+    async def create(role: str) -> User:
+        async with get_sessionmaker()() as session:
+            user = await make_user(session, role)
+            await session.commit()
+        created.append(user)
+        return user
+
+    yield create
+    async with get_sessionmaker()() as session:
+        for user in created:
+            await session.delete(await session.get(User, user.id))
+        await session.commit()

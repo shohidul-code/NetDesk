@@ -7,7 +7,7 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 
 import httpx
@@ -19,7 +19,6 @@ from mcp.client.streamable_http import streamable_http_client
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.db import get_sessionmaker
 from app.core.security import create_access_token
 from app.main import create_app
 from app.mcp import server
@@ -107,19 +106,6 @@ async def test_unknown_host_is_421(mcp_app: FastAPI, admin: User) -> None:
 
 
 @pytest.fixture
-async def committed_staff() -> AsyncIterator[User]:
-    """The uvicorn subprocess has its own connections, so it cannot see a rolled-back
-    test transaction; this user is committed and deleted afterwards."""
-    async with get_sessionmaker()() as session:
-        user = await make_user(session, "technician")
-        await session.commit()
-    yield user
-    async with get_sessionmaker()() as session:
-        await session.delete(await session.get(User, user.id))
-        await session.commit()
-
-
-@pytest.fixture
 def live_server() -> Iterator[str]:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -149,9 +135,9 @@ def live_server() -> Iterator[str]:
 
 
 async def test_real_server_sdk_client_lists_and_calls(
-    live_server: str, committed_staff: User
+    live_server: str, committed_user: Callable[[str], Awaitable[User]]
 ) -> None:
-    token = create_access_token(committed_staff.id)[0]
+    token = create_access_token((await committed_user("technician")).id)[0]
     http = httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"})
     transport = streamable_http_client(f"{live_server}/mcp", http_client=http)
 
