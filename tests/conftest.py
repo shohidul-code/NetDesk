@@ -24,6 +24,7 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.core.db import get_engine, get_session  # noqa: E402
+from app.core.rate_limit import limiter  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.modules.auth.dependencies import get_current_user  # noqa: E402
 from app.modules.users.models import User  # noqa: E402
@@ -35,6 +36,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture(scope="session", autouse=True)
 def _migrated_database() -> None:
     subprocess.run(["alembic", "upgrade", "head"], cwd=REPO_ROOT, check=True, capture_output=True)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """The limiter keeps counts in memory for the whole process; start every test at zero."""
+    limiter.reset()
 
 
 @pytest.fixture

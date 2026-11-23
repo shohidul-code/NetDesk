@@ -17,6 +17,7 @@ from app.modules.complaints.controllers import router as complaints_router
 from app.modules.connections.controllers import router as connections_router
 from app.modules.notices.controllers import router as notices_router
 from app.modules.packages.controllers import router as packages_router
+from app.modules.users.controllers import router as users_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -38,6 +39,7 @@ async def health(session: Annotated[AsyncSession, Depends(get_session)]) -> dict
 
 for module_router in (
     auth_router,
+    users_router,
     areas_router,
     packages_router,
     connections_router,
