@@ -1,0 +1,6 @@
+# Reviewed false positives: synthetic test values, not secrets. Listed one by one (by
+# fingerprint), so a new finding anywhere, tests included, still fails CI.
+# The fake password a test proves never reaches the logs.
+de99a06fb55c34a51495daba9c7d839cf0b39b97:tests/test_log_redaction.py:generic-api-key:53
+# The "attacker" signing key used to forge a token in a test.
+52e54fd96b391df2900351c20897edac4a6cc605:tests/test_auth.py:generic-api-key:165

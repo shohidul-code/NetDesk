@@ -1,5 +1,4 @@
-# CI (PROPOSAL §12.8). The security job (pip-audit, gitleaks) is added in Phase 8
-# (BUILD_PLAN.md).
+# CI (PROPOSAL §12.8): backend, frontend, security (dependencies and secrets), docker.
 name: CI
 
 on:
@@ -59,6 +58,33 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  security:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history, not just this commit
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.12.21"
+      - name: pip-audit (Python dependencies, from uv.lock)
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --format requirements-txt > /tmp/requirements.txt
+          uvx pip-audit@2.10.1 --strict --progress-spinner off -r /tmp/requirements.txt
+      - name: npm audit (frontend, fails on high or critical)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+      - name: gitleaks (secrets in git history)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git . --redact --exit-code 1 --gitleaks-ignore-path .gitleaksignore
 
   docker:
     runs-on: ubuntu-24.04
