@@ -21,15 +21,19 @@ class TEIEmbedder:
         timeout: float = 10.0,
         batch_size: int = 32,
         model_name: str = MODEL_NAME,
+        api_key: str | None = None,
     ) -> None:
         self.model_name = model_name
+        self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
         self._url = base_url.rstrip("/") + "/embed"
         self._client = http_client or httpx.AsyncClient()
         self._timeout = timeout
         self._batch_size = batch_size
 
     async def _embed(self, texts: list[str]) -> list[list[float]]:
-        return await post_for_vectors(self._client, self._url, texts, timeout=self._timeout)
+        return await post_for_vectors(
+            self._client, self._url, texts, timeout=self._timeout, headers=self._headers
+        )
 
     async def embed_query(self, text: str) -> list[float]:
         return (await self._embed([QUERY_PREFIX + text]))[0]

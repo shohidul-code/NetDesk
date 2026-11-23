@@ -1,5 +1,7 @@
 """App factory. Run with: uv run uvicorn app.main:app --reload"""
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,6 +19,7 @@ from app.core.config import get_settings
 from app.core.errors import error_response, register_exception_handlers
 from app.core.logging import RequestIdMiddleware, configure_logging
 from app.core.rate_limit import limiter
+from app.integrations.embeddings import EmbeddingsUnavailableError, get_embedder
 from app.mcp import server as mcp_server
 from app.mcp.auth import StaffJWTMiddleware
 
@@ -29,6 +32,19 @@ async def _rate_limited(request: Request, exc: Exception) -> JSONResponse:
         "Too many attempts. Please wait and try again.",
         headers={"Retry-After": "60"},
     )
+
+
+logger = logging.getLogger(__name__)
+
+
+async def _warm_embedder() -> None:
+    """Wake the embedder together with the API (PROPOSAL §12.3.5): on free Render both sleep,
+    and the first chat question should not wait for the embedder's cold start. A failure is
+    only logged; chat already degrades without articles."""
+    try:
+        await get_embedder().embed_query("warm up")
+    except EmbeddingsUnavailableError:
+        logger.warning("embedder warm-up failed; retrieval stays degraded until it answers")
 
 
 def create_app() -> FastAPI:
@@ -50,8 +66,10 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # A mounted sub-app's own lifespan never runs, so start the MCP manager here.
+        warm_up = asyncio.create_task(_warm_embedder())  # in the background: startup never waits
         async with session_manager.run():
             yield
+        warm_up.cancel()
 
     app = FastAPI(title="NetDesk API", version=__version__, lifespan=lifespan)
     # Innermost of the three, so a 413 still gets a request id and CORS headers.

@@ -13,6 +13,7 @@ library needs about 315 MB for this 250k-piece vocabulary, sentencepiece under 1
 Both give identical ids (checked on Bangla, English, mixed text and 512-token truncation).
 """
 
+import hmac
 import os
 from pathlib import Path
 
@@ -28,6 +29,9 @@ from starlette.routing import Route
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", "/model"))
 MAX_TOKENS = 512  # the model's limit; longer text is truncated, as TEI does
 MAX_INPUTS = 32  # per request (the app's ingest batch size)
+# Required on Render, where this service is public: the app sends "Authorization: Bearer <key>"
+# (the same scheme as TEI's --api-key). Unset locally, so no key is needed there.
+API_KEY = os.environ.get("EMBEDDER_API_KEY", "")
 CHUNK = 2  # run the model on a few texts at a time to keep memory flat
 
 options = ort.SessionOptions()
@@ -69,6 +73,9 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 
 async def embed_route(request: Request) -> Response:
+    sent = request.headers.get("authorization", "")
+    if API_KEY and not hmac.compare_digest(sent, f"Bearer {API_KEY}"):
+        return JSONResponse({"error": "missing or wrong API key"}, status_code=401)
     try:
         body = await request.json()
     except ValueError:

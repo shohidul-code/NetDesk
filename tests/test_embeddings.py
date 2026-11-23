@@ -67,6 +67,20 @@ async def test_tei_sends_prefixes_and_normalize_and_returns_unit_vectors() -> No
     assert norm(p[0]) == pytest.approx(1.0)
 
 
+async def test_tei_sends_the_api_key_only_when_one_is_set() -> None:
+    """The production embedder is public on Render, so it requires a Bearer key (like TEI's
+    --api-key); local TEI has none, and no header is sent there."""
+    seen: list[httpx.Request] = []
+    keyed = TEIEmbedder("http://e", http_client=tei_client(echo_handler(seen)), api_key="k-123")
+    open_ = TEIEmbedder("http://e", http_client=tei_client(echo_handler(seen)))
+
+    await keyed.embed_query("x")
+    await open_.embed_query("x")
+
+    assert seen[0].headers["Authorization"] == "Bearer k-123"
+    assert "Authorization" not in seen[1].headers
+
+
 async def test_tei_batches_70_passages_into_3_requests() -> None:
     seen: list[httpx.Request] = []
     embedder = TEIEmbedder("http://tei", http_client=tei_client(echo_handler(seen)), batch_size=32)
@@ -253,6 +267,16 @@ def test_build_embedder_picks_each_provider() -> None:
     assert isinstance(tei._inner, TEIEmbedder) and tei.model_name == MODEL_NAME  # type: ignore[attr-defined]
     assert isinstance(hf._inner, HFInferenceEmbedder)  # type: ignore[attr-defined]
     assert isinstance(fake._inner, FakeEmbedder) and fake.model_name == "fake-e5-384"  # type: ignore[attr-defined]
+
+
+def test_build_embedder_passes_the_embeddings_api_key() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        embeddings_provider="tei", embeddings_url="http://e", embeddings_api_key=SecretStr("k")
+    )
+
+    tei = build_embedder(settings)._inner  # type: ignore[attr-defined]
+
+    assert tei._headers == {"Authorization": "Bearer k"}
 
 
 def test_int8_embedder_vectors_get_their_own_model_label() -> None:
