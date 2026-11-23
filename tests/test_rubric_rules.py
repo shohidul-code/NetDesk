@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
-from fastapi.routing import APIRoute
+from fastapi.routing import APIRoute, iter_route_contexts
 from httpx import ASGITransport, AsyncClient
 from pydantic import BaseModel, Field
 
@@ -101,14 +101,16 @@ def _dependency_names(route: APIRoute) -> set[str]:
 
 def test_every_non_public_route_requires_auth() -> None:
     app = create_app()
+    # FastAPI keeps included routers nested; iter_route_contexts walks them with full paths.
+    contexts = [c for c in iter_route_contexts(app.routes) if isinstance(c.route, APIRoute)]
     unprotected = [
-        route.path
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        and route.path not in PUBLIC_PATHS
-        and AUTH_DEPENDENCY not in _dependency_names(route)
+        c.path
+        for c in contexts
+        if c.path not in PUBLIC_PATHS and AUTH_DEPENDENCY not in _dependency_names(c.route)
     ]
 
+    # Guard against a vacuous pass: the module routes must actually be inspected.
+    assert "/api/v1/connections/{connection_id}" in {c.path for c in contexts}
     assert unprotected == []
 
 
