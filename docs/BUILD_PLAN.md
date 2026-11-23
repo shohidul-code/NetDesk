@@ -44,23 +44,23 @@ About 24 working days (about 22 without P1). The frontend agent may start after 
 
 ## Phase 1 — Foundation (1.5 d)
 
-- [ ] `pyproject.toml` and `uv.lock` (committed); `app/main.py` with `/api/v1/health`.
-- [ ] `app/core/config.py`: pydantic-settings, secrets as `SecretStr`; startup fails without `DATABASE_URL` or `JWT_SECRET_KEY`.
-- [ ] Declare the flags used in later phases now, so `.env.example` is complete from day one: `ALLOW_CUSTOMER_COMPLAINTS`, `CHAT_ENABLED`, `CHAT_DAILY_LIMIT_CUSTOMER`, `CHAT_DAILY_LIMIT_STAFF`, `CHAT_DAILY_LIMIT_GLOBAL`, `EMBEDDINGS_PROVIDER` (`tei | hf_inference | fake`), `MCP_ALLOWED_HOSTS`, `MCP_STDIO_USER_EMAIL`. [audit]
-- [ ] `.env.example` lists every Settings field, each comment on its own line. [audit]
-- [ ] Error envelope and global handlers; request-ID middleware; JSON logging.
-- [ ] Alembic with the async template.
-- [ ] `Dockerfile` and `compose.yaml` (db, embeddings, api). Start the TEI image download early.
-- [ ] `.github/workflows/ci.yml`: ruff, mypy, pytest.
-- [ ] `tests/test_rubric_rules.py` [refined][audit]:
+- [x] `pyproject.toml` and `uv.lock` (committed); `app/main.py` with `/api/v1/health`.
+- [x] `app/core/config.py`: pydantic-settings, secrets as `SecretStr`; startup fails without `DATABASE_URL` or `JWT_SECRET_KEY`.
+- [x] Declare the flags used in later phases now, so `.env.example` is complete from day one: `ALLOW_CUSTOMER_COMPLAINTS`, `CHAT_ENABLED`, `CHAT_DAILY_LIMIT_CUSTOMER`, `CHAT_DAILY_LIMIT_STAFF`, `CHAT_DAILY_LIMIT_GLOBAL`, `EMBEDDINGS_PROVIDER` (`tei | hf_inference | fake`), `MCP_ALLOWED_HOSTS`, `MCP_STDIO_USER_EMAIL`. [audit]
+- [x] `.env.example` lists every Settings field, each comment on its own line. [audit]
+- [x] Error envelope and global handlers; request-ID middleware; JSON logging.
+- [x] Alembic with the async template.
+- [x] `Dockerfile` and `compose.yaml` (db, embeddings, api). Start the TEI image download early.
+- [x] `.github/workflows/ci.yml`: ruff, mypy, pytest.
+- [x] `tests/test_rubric_rules.py` [refined][audit]:
   - no `create_all(` in `app/`, `tests/`, `scripts/` or `migrations/`;
   - `uv.lock` tracked and `.env` untracked (`git ls-files`);
   - every Settings field appears in `.env.example`;
   - a missing `JWT_SECRET_KEY` fails at startup;
   - every route outside `/health`, `/auth/register`, `/auth/login` and the docs has an auth dependency;
   - 422 bodies contain no `input`; 500 bodies contain no traceback.
-- [ ] `scripts/smoke.sh <base-url>`: health first; exit non-zero on any failure. Extended in Phases 3, 4, 6 and 9. [audit]
-- [ ] README skeleton: placeholders for the three submission links, the cold-start note, known limits and the AI-assistance section. [refined][audit]
+- [x] `scripts/smoke.sh <base-url>`: health first; exit non-zero on any failure. Extended in Phases 3, 4, 6 and 9. [audit]
+- [x] README skeleton: placeholders for the three submission links, the cold-start note, known limits and the AI-assistance section. [refined][audit]
 
 **Tests:** startup fails without a secret; health returns 200; an unknown route returns the envelope with 404; a forced error returns 500 without a traceback.
 **Done when (Gate 0):** `docker compose up` serves `/docs`, and CI is green on GitHub.
