@@ -41,3 +41,8 @@ export function useSendMessage() {
       api.post<Schemas["ChatReply"]>(`/chat/sessions/${chatId}/messages`, { content }),
   });
 }
+
+/** Messages left today, so the header can show it before the first message (GET /chat/usage). */
+export function useUsage() {
+  return useQuery({ queryKey: ["chat", "usage"], queryFn: () => api.get<Schemas["ChatUsage"]>("/chat/usage") });
+}

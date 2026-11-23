@@ -4,13 +4,17 @@ import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ChatPane } from "@/features/chat/ChatPane";
+import { useUsage } from "@/features/chat/queries";
 import { SessionList } from "@/features/chat/SessionList";
 import { cn } from "@/lib/utils";
 
 export function AssistantPage() {
   const { user } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [left, setLeft] = useState<number | null>(null);
+  const [leftAfterReply, setLeft] = useState<number | null>(null);
+  const usage = useUsage();
+  // The latest reply's count wins; before the first reply, the usage endpoint fills in.
+  const left = leftAfterReply ?? usage.data?.messages_left_today ?? null;
   const [outOfMessages, setOutOfMessages] = useState(false);
   const [listOpen, setListOpen] = useState(false);
 
