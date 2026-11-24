@@ -3,9 +3,10 @@
 # expire after 30 days). Secrets marked `sync: false` are typed into the Render dashboard
 # once and never live in this file.
 #
-# Service names become <name>.onrender.com. If Render had to add a suffix because a name was
-# taken, update the URLs below (CORS_ORIGINS, MCP_ALLOWED_HOSTS, EMBEDDINGS_URL,
-# VITE_API_BASE_URL) to the real hostnames.
+# Render adds a Blueprint-specific suffix to these names (here "-mvkc", from the plan for
+# blueprint exs-dc2arf0n74is73e39bs0), so the hostnames below carry it. If the Blueprint is
+# ever recreated the suffix changes: update CORS_ORIGINS, MCP_ALLOWED_HOSTS, EMBEDDINGS_URL
+# and VITE_API_BASE_URL to the real hostnames.
 
 services:
   - type: web
@@ -31,7 +32,7 @@ services:
       - key: EMBEDDINGS_PROVIDER
         value: tei
       - key: EMBEDDINGS_URL
-        value: https://netdesk-embedder.onrender.com
+        value: https://netdesk-embedder-mvkc.onrender.com
       - key: EMBEDDINGS_MODEL_LABEL # int8 vectors are stored and searched under their own label
         value: intfloat/multilingual-e5-small-qint8
       - key: EMBEDDINGS_API_KEY
@@ -40,9 +41,9 @@ services:
           name: netdesk-embedder
           envVarKey: EMBEDDER_API_KEY
       - key: CORS_ORIGINS
-        value: '["https://netdesk-web.onrender.com"]'
+        value: '["https://netdesk-web-mvkc.onrender.com"]'
       - key: MCP_ALLOWED_HOSTS
-        value: '["netdesk-api.onrender.com"]'
+        value: '["netdesk-api-mvkc.onrender.com"]'
       - key: MCP_ALLOWED_ORIGINS
         value: "[]"
 
@@ -71,8 +72,10 @@ services:
     buildFilter:
       paths: ["frontend/**"]
     envVars:
+      - key: NODE_VERSION # Vite 8 needs Node 20.19+ or 22.12+; do not rely on Render's default
+        value: "24"
       - key: VITE_API_BASE_URL
-        value: https://netdesk-api.onrender.com
+        value: https://netdesk-api-mvkc.onrender.com
     routes:
       - type: rewrite # a single-page app: every path serves index.html
         source: /*

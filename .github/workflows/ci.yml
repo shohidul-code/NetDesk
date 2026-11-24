@@ -128,3 +128,18 @@ jobs:
           assert abs(math.sqrt(sum(x * x for x in v)) - 1) < 1e-3
           print("embedder ok: 384 dims, unit length")'
           docker stats --no-stream embedder
+          docker rm -f embedder
+      # With a key set (as on Render): wrong or non-ASCII keys get 401 (never a 500), and an
+      # oversized body gets 413 before it is read into memory.
+      - name: Check the embedder's key and size limits
+        run: |
+          docker run -d --name embedder-keyed --memory 450m -e EMBEDDER_API_KEY=ci-key -p 8083:8000 netdesk-embedder
+          for i in $(seq 1 60); do curl -fsS http://localhost:8083/health && break; sleep 1; done
+          code() { curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' "$@" http://localhost:8083/embed; }
+          [ "$(code -d '{"inputs":["q"]}')" = 401 ]
+          [ "$(code -H 'Authorization: Bearer wrong' -d '{"inputs":["q"]}')" = 401 ]
+          [ "$(code -H $'Authorization: Bearer caf\xe9' -d '{"inputs":["q"]}')" = 401 ]
+          [ "$(code -H 'Authorization: Bearer ci-key' -d '{"inputs":["q"]}')" = 200 ]
+          head -c 1000000 /dev/zero | tr '\0' a > /tmp/big.txt
+          [ "$(code -H 'Authorization: Bearer ci-key' --data-binary @/tmp/big.txt)" = 413 ]
+          echo "embedder key and size checks ok"

@@ -14,6 +14,7 @@ Both give identical ids (checked on Bangla, English, mixed text and 512-token tr
 """
 
 import hmac
+import json
 import os
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from starlette.routing import Route
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", "/model"))
 MAX_TOKENS = 512  # the model's limit; longer text is truncated, as TEI does
 MAX_INPUTS = 32  # per request (the app's ingest batch size)
+MAX_BODY = 512 * 1024  # 32 inputs of 512 tokens is about 200 KB; more is a mistake or an attack
 # Required on Render, where this service is public: the app sends "Authorization: Bearer <key>"
 # (the same scheme as TEI's --api-key). Unset locally, so no key is needed there.
 API_KEY = os.environ.get("EMBEDDER_API_KEY", "")
@@ -73,11 +75,17 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 
 async def embed_route(request: Request) -> Response:
-    sent = request.headers.get("authorization", "")
-    if API_KEY and not hmac.compare_digest(sent, f"Bearer {API_KEY}"):
+    # Bytes, not str: compare_digest raises on a non-ASCII header, which would be a 500.
+    sent = request.headers.get("authorization", "").encode("latin-1")
+    if API_KEY and not hmac.compare_digest(sent, f"Bearer {API_KEY}".encode()):
         return JSONResponse({"error": "missing or wrong API key"}, status_code=401)
+    raw = b""
+    async for chunk in request.stream():  # counted as read, so a chunked body cannot skip the cap
+        raw += chunk
+        if len(raw) > MAX_BODY:
+            return JSONResponse({"error": "body too large"}, status_code=413)
     try:
-        body = await request.json()
+        body = json.loads(raw)
     except ValueError:
         return JSONResponse({"error": "body must be JSON"}, status_code=422)
     inputs = body.get("inputs") if isinstance(body, dict) else None
